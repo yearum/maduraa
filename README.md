@@ -1,8 +1,11 @@
 # Maduraa
 
 Dev tim:
+
 Nenglia Fitri (Project Leader)
+
 Srefi Noor Diana (Frontend)
+
 Moh.alfan Setya Sudarita (backend)
 
 Sistem Pencatatan Omzet Toko Madura adalah aplikasi berbasis web yang dikembangkan menggunakan React, TypeScript, dan Vite.
