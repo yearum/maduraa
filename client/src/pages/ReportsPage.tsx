@@ -18,6 +18,7 @@ type Period = 'Harian' | 'Mingguan' | 'Bulanan'
 
 type ReportsPageProps = {
   sales: SaleTransaction[]
+  storeName: string
 }
 
 function localDateString(date: Date) {
@@ -36,7 +37,7 @@ function formatDate(date: string) {
   }).format(new Date(`${date}T12:00:00`))
 }
 
-function ReportsPage({ sales }: ReportsPageProps) {
+function ReportsPage({ sales, storeName }: ReportsPageProps) {
   const [period, setPeriod] = useState<Period>('Harian')
   const [search, setSearch] = useState('')
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null)
@@ -97,6 +98,10 @@ function ReportsPage({ sales }: ReportsPageProps) {
         </div>
         <span className="reports-date"><CalendarDays size={13} /> {formatDate(today)}</span>
       </section>
+      <p className="reports-data-note">
+        Laporan dihitung dari transaksi yang tersimpan di browser ini. Data contoh awal dapat
+        disesuaikan atau dihapus; transaksi lokal belum tersinkron ke server.
+      </p>
 
       <section className="reports-summary">
         <article className="revenue">
@@ -186,7 +191,7 @@ function ReportsPage({ sales }: ReportsPageProps) {
               <button aria-label="Tutup" onClick={() => setSelectedSale(null)}><X size={17} /></button>
             </header>
             <div className="receipt-modal-content">
-              <strong>TOKO BERKAH MADURA</strong>
+              <strong>{storeName}</strong>
               <span>#{selectedSale.id}</span>
               <span>{formatDate(selectedSale.date)} · {selectedSale.time}</span>
               <hr />

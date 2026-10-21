@@ -1,45 +1,87 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  ArrowRightToLine,
-  CircleAlert,
+  Store,
   Eye,
   EyeOff,
-  Store,
+  ArrowRightToLine,
+  CircleAlert,
 } from 'lucide-react'
 import {
   AuthError,
+  isLocalAuthEnabled,
+  loginLocalUser,
   loginUser,
   saveAuthToken,
+  validateIdentity,
 } from '../services/authService'
 import './LoginPage.css'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [identity, setIdentity] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [identityError, setIdentityError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [submitError, setSubmitError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (isLoading) return
 
-    setError('')
+    setIdentityError('')
+    setPasswordError('')
+    setSubmitError('')
+
+    const normalizedIdentity = identity.trim()
+    let hasValidationError = false
+
+    const identityValidationError = validateIdentity(normalizedIdentity)
+    if (identityValidationError) {
+      setIdentityError(identityValidationError)
+      hasValidationError = true
+    }
+
+    if (!password) {
+      setPasswordError('Kata sandi wajib diisi.')
+      hasValidationError = true
+    } else if (password.length < 6) {
+      setPasswordError('Kata sandi harus terdiri dari minimal 6 karakter.')
+      hasValidationError = true
+    }
+
+    if (hasValidationError) return
+
     setIsLoading(true)
 
     try {
-      const { token } = await loginUser(email.trim(), password)
-      saveAuthToken(token, remember)
+      if (isLocalAuthEnabled()) {
+        const session = await loginLocalUser(normalizedIdentity, password)
+        saveAuthToken(session.token, remember, session.profile)
+        navigate('/dashboard', { replace: true })
+        return
+      }
+
+      if (!normalizedIdentity.includes('@')) {
+        setIdentityError('Login dengan nomor HP belum tersedia pada server.')
+        return
+      }
+
+      const { token } = await loginUser(normalizedIdentity, password)
+      saveAuthToken(token, remember, {
+        name: normalizedIdentity,
+        identity: normalizedIdentity,
+      })
       navigate('/dashboard', { replace: true })
     } catch (loginError) {
       if (loginError instanceof AuthError) {
-        setError(loginError.message)
+        setSubmitError(loginError.message)
       } else {
         console.error('Kesalahan tidak terduga saat login:', loginError)
-        setError('Terjadi kesalahan saat login. Silakan coba lagi.')
+        setSubmitError('Terjadi kesalahan saat login. Silakan coba lagi.')
       }
     } finally {
       setIsLoading(false)
@@ -54,33 +96,42 @@ function LoginPage() {
           <p>Catat transaksi dan pantau omzet warung dengan mudah</p>
         </header>
 
-        {error && (
+        {submitError && (
           <div className="login-alert" role="alert">
             <CircleAlert size={16} aria-hidden="true" />
-            <span>{error}</span>
+            <span>{submitError}</span>
           </div>
         )}
 
-        <form className="login-form" onSubmit={handleSubmit}>
+        <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="identity">Email atau Nomor HP</label>
 
             <div className="login-input-wrap">
               <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Masukkan email"
-                value={email}
+                id="identity"
+                name="identity"
+                type="text"
+                placeholder="Masukkan email atau nomor HP"
+                value={identity}
                 onChange={(event) => {
-                  setEmail(event.target.value)
-                  setError('')
+                  setIdentity(event.target.value)
+                  setIdentityError('')
+                  setSubmitError('')
                 }}
                 autoComplete="username"
+                aria-invalid={Boolean(identityError)}
+                aria-describedby={identityError ? 'identity-error' : undefined}
                 required
               />
               <Store size={16} aria-hidden="true" />
             </div>
+            {identityError && (
+              <p className="password-hint" id="identity-error">
+                <CircleAlert size={12} aria-hidden="true" />
+                {identityError}
+              </p>
+            )}
           </div>
 
           <div className="login-field">
@@ -95,10 +146,12 @@ function LoginPage() {
                 value={password}
                 onChange={(event) => {
                   setPassword(event.target.value)
-                  setError('')
+                  setPasswordError('')
+                  setSubmitError('')
                 }}
                 autoComplete="current-password"
-                minLength={6}
+                aria-invalid={Boolean(passwordError)}
+                aria-describedby={passwordError ? 'password-error' : undefined}
                 required
               />
 
@@ -114,10 +167,10 @@ function LoginPage() {
               </button>
             </div>
 
-            {password.length > 0 && password.length < 6 && (
-              <p className="password-hint">
-                <CircleAlert size={12} aria-hidden="true" />
-                Kata sandi wajib diisi minimal 6 karakter.
+            {passwordError && (
+              <p className="password-hint" id="password-error">
+                <CircleAlert size={12} />
+                {passwordError}
               </p>
             )}
           </div>
@@ -138,7 +191,7 @@ function LoginPage() {
             aria-busy={isLoading}
           >
             <span>{isLoading ? 'Sedang masuk...' : 'Masuk ke Warung'}</span>
-            <ArrowRightToLine size={17} aria-hidden="true" />
+            <ArrowRightToLine size={17} />
           </button>
         </form>
 
@@ -148,8 +201,7 @@ function LoginPage() {
         </aside>
 
         <footer className="login-footer">
-          Belum punya akun warung?{' '}
-          <span>Hubungi pemilik warung atau admin.</span>
+          Belum punya akun warung? <Link to="/register">Daftar sekarang</Link>
         </footer>
       </section>
     </main>

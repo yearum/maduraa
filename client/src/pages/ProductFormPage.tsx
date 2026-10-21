@@ -229,12 +229,9 @@ function ProductFormPage({
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        const generated = `899${Date.now().toString().slice(-10)}`
-                        setBarcode(generated)
-                        setSku(generated)
-                      }}
-                    ><ScanLine size={13} /> Scan</button>
+                      disabled
+                      title="Pemindaian barcode belum tersedia"
+                    ><ScanLine size={13} /> Scan belum tersedia</button>
                   </div>
                   <button className="product-inline-link sku-generate" type="button" onClick={generateSku}><Sparkles size={10} /> Buat Otomatis</button>
                 </label>
@@ -312,7 +309,7 @@ function ProductFormPage({
                   <span>Batas Peringatan Stok Menipis <b className="warning-star">⚠</b></span>
                   <div className="product-stock-input">
                     <input type="number" min="0" value={minStock} onChange={(event) => setMinStock(event.target.value)} />
-                    <button type="button">Batas Min.</button>
+                    <button type="button" onClick={() => setMinStock('5')}>Atur 5</button>
                   </div>
                   <small>Munculkan badge orange jika tersisa {minStock || 0} {unit}.</small>
                 </label>

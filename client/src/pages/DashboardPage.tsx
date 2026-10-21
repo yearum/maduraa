@@ -23,12 +23,24 @@ import {
   Printer,
 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { clearAuthToken } from '../services/authService'
+import {
+  clearAuthToken,
+  updateCurrentAuthProfile,
+} from '../services/authService'
+import { useAuthProfile } from '../hooks/useAuthProfile'
 import {
   loadDemoStoreProfile,
   saveDemoStoreProfile,
   type StoreProfile,
 } from '../data/demoStoreProfile'
+import {
+  loadCategories,
+  loadProducts,
+  loadSales,
+  saveCategories,
+  saveProducts,
+  saveSales,
+} from '../data/localAppData'
 import ProductsPage from './ProductsPage'
 import ReportsPage from './ReportsPage'
 import CategoriesPage from './CategoriesPage'
@@ -45,9 +57,10 @@ import './DashboardPage.css'
 type ProfileSettingsProps = {
   profile: StoreProfile
   onChange: (field: keyof StoreProfile, value: string) => void
-  onSave: () => void
+  onSave: (ownerName: string) => void
   saved: boolean
   onLogout: () => void
+  saveError: string
 }
 
 function ProfileSettings({
@@ -56,8 +69,9 @@ function ProfileSettings({
   onSave,
   saved,
   onLogout,
+  saveError,
 }: ProfileSettingsProps) {
-  const [printerReady, setPrinterReady] = useState(true)
+  const [ownerName, setOwnerName] = useState(profile.ownerName)
   const initials = profile.ownerName
     .split(/\s+/)
     .filter(Boolean)
@@ -115,17 +129,15 @@ function ProfileSettings({
               </div>
               <div>
                 <LockKeyhole size={13} />
-                <span><small>PIN Keamanan Kasir</small>Aktif ({profile.pin.length} Digit)</span>
+                <span><small>PIN Keamanan Kasir</small>Belum dikonfigurasi</span>
               </div>
             </div>
           </section>
 
           <section className="profile-access-card">
             <h3><ShieldCheck size={14} /> Batasan Hak Staf Kasir</h3>
-            <p>Karyawan jaga toko hanya diberikan akses untuk melayani pembeli dan cek ketersediaan stok produk:</p>
-            <div><span>Transaksi Kasir (POS)</span><strong>Bisa Akses</strong></div>
-            <div><span>Lihat Stok Produk</span><strong>Bisa Akses</strong></div>
-            <div className="restricted"><span>Laporan Omzet &amp; Margin</span><strong>Terkunci</strong></div>
+            <p>Pengelolaan akun dan pembatasan hak akses staf belum tersedia.</p>
+            <div><span>Akun aktif</span><strong>{profile.ownerName}</strong></div>
           </section>
         </aside>
 
@@ -134,7 +146,7 @@ function ProfileSettings({
             className="profile-form-card"
             onSubmit={(event) => {
               event.preventDefault()
-              onSave()
+              onSave(ownerName)
             }}
           >
             <div className="profile-form-heading">
@@ -146,6 +158,18 @@ function ProfileSettings({
             </div>
 
             <div className="profile-fields-grid">
+              <label className="profile-field">
+                <span>Nama Pemilik</span>
+                <input
+                  type="text"
+                  value={ownerName}
+                  onChange={(event) => {
+                    setOwnerName(event.target.value)
+                    onChange('ownerName', event.target.value)
+                  }}
+                  required
+                />
+              </label>
               {field('storeName', 'Nama Warung')}
               {field('operatingHours', 'Status Operasional')}
               {field('address', 'Alamat Lengkap Warung')}
@@ -154,16 +178,18 @@ function ProfileSettings({
             <p className="profile-helper">Kalimat sapaan khas Madura yang akan tercetak otomatis di ujung bawah struk.</p>
 
             <button
-              className={`printer-status ${printerReady ? '' : 'printer-off'}`}
+              className="printer-status printer-off"
               type="button"
-              onClick={() => setPrinterReady((ready) => !ready)}
+              disabled
+              title="Integrasi printer belum tersedia"
             >
               <Printer size={16} />
               <span><strong>Printer Thermal Kasir</strong><small>Bluetooth / USB 58mm &amp; 80mm</small></span>
-              <b>{printerReady ? 'Siap Cetak' : 'Tidak Aktif'}</b>
+              <b>Belum Terhubung</b>
             </button>
 
             <div className="profile-save-row">
+              {saveError && <span role="alert">{saveError}</span>}
               {saved && <span role="status">Perubahan profil berhasil diperbarui.</span>}
               <button className="profile-save-button" type="submit">
                 <Save size={14} /> Simpan Perubahan
@@ -178,8 +204,8 @@ function ProfileSettings({
               <span>{profile.address}</span>
               <span>{profile.operatingHours}</span>
               <hr />
-              <div><span>24/10/2024 14:30</span><span>Kasir: {profile.ownerName}</span></div>
-              <div><b>Total Belanja:</b><b>Rp 185.000</b></div>
+              <div><span>Pratinjau</span><span>Kasir: {profile.ownerName}</span></div>
+              <div><b>Total Belanja:</b><b>Dihitung saat transaksi</b></div>
               <em>“{profile.receiptFooter}”</em>
             </div>
           </section>
@@ -200,6 +226,8 @@ function DashboardPage({
 }: DashboardPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const authProfile = useAuthProfile()
+  const accountIdentity = authProfile?.identity ?? 'shared'
   const [menuOverride, setMenuOverride] = useState<{
     pathname: string
     menu: string
@@ -208,13 +236,31 @@ function DashboardPage({
     menuOverride?.pathname === location.pathname
       ? menuOverride.menu
       : initialSection
-  const [productList, setProductList] = useState(initialProducts)
-  const [categories, setCategories] = useState(
-    productCategories.filter((category) => category !== 'Semua'),
+  const [productList, setProductList] = useState(() =>
+    loadProducts(accountIdentity, initialProducts),
   )
-  const [sales, setSales] = useState(initialDemoSales)
-  const [storeProfile, setStoreProfile] = useState(loadDemoStoreProfile)
+  const [categories, setCategories] = useState(() =>
+    loadCategories(
+      accountIdentity,
+      productCategories.filter((category) => category !== 'Semua'),
+    ),
+  )
+  const [sales, setSales] = useState(() =>
+    loadSales(accountIdentity, initialDemoSales),
+  )
+  const [storeProfile, setStoreProfile] = useState(() => {
+    const savedProfile = loadDemoStoreProfile(accountIdentity)
+    const identity = authProfile?.identity ?? ''
+    return {
+      ...savedProfile,
+      ownerName: authProfile?.name ?? savedProfile.ownerName,
+      email: identity.includes('@') ? identity : '',
+      phone: identity.startsWith('+62') ? identity : '',
+    }
+  })
   const [profileSaved, setProfileSaved] = useState(false)
+  const [profileSaveError, setProfileSaveError] = useState('')
+  const [dataError, setDataError] = useState('')
   const [category, setCategory] = useState('Semua')
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<Record<number, number>>({})
@@ -230,7 +276,14 @@ function DashboardPage({
     }
   }
 
-  const ownerInitials = storeProfile.ownerName
+  const ownerName = authProfile?.name || storeProfile.ownerName
+  const profileForDisplay = {
+    ...storeProfile,
+    ownerName,
+    email: authProfile?.identity.includes('@') ? authProfile.identity : '',
+    phone: authProfile?.identity.startsWith('+62') ? authProfile.identity : '',
+  }
+  const ownerInitials = ownerName
     .trim()
     .split(/\s+/)
     .filter(Boolean)
@@ -243,6 +296,15 @@ function DashboardPage({
     month: 'long',
     year: 'numeric',
   }).format(new Date())
+  const now = new Date()
+  const todayKey = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+  const cashReceivedToday = sales
+    .filter((sale) => sale.date === todayKey && sale.payment === 'Tunai')
+    .reduce((amount, sale) => amount + sale.total, 0)
 
   const filteredProducts = productList.filter((product) => {
     const matchCategory =
@@ -343,16 +405,28 @@ function DashboardPage({
       ),
       payment: 'Tunai',
       status: 'Selesai',
-      cashier: storeProfile.ownerName,
+      cashier: ownerName,
     }
-    setSales((current) => [transaction, ...current])
-    setProductList((current) =>
-      current.map((product) => ({
+    const nextSales = [transaction, ...sales]
+    const nextProducts = productList.map((product) => ({
         ...product,
         stock: Math.max(0, product.stock - (cart[product.id] ?? 0)),
-      })),
-    )
-    setNotice('Transaksi berhasil dicatat pada demo ini.')
+      }))
+    try {
+      saveSales(accountIdentity, nextSales)
+      saveProducts(accountIdentity, nextProducts)
+    } catch (error) {
+      setDataError(
+        error instanceof Error
+          ? error.message
+          : 'Transaksi gagal disimpan di browser.',
+      )
+      return
+    }
+    setSales(nextSales)
+    setProductList(nextProducts)
+    setDataError('')
+    setNotice('Transaksi berhasil dicatat dan disimpan di browser ini.')
     setCart({})
     setCash('200000')
     setDiscount(0)
@@ -380,8 +454,52 @@ function DashboardPage({
     setProfileSaved(false)
   }
 
+  function updateCategories(nextCategories: string[]) {
+    try {
+      saveCategories(accountIdentity, nextCategories)
+      setCategories(nextCategories)
+      setCategory((current) =>
+        current !== 'Semua' && !nextCategories.includes(current)
+          ? 'Semua'
+          : current,
+      )
+      setDataError('')
+    } catch (error) {
+      setDataError(
+        error instanceof Error ? error.message : 'Kategori gagal disimpan.',
+      )
+    }
+  }
+
+  function saveStoreProfile(updatedOwnerName: string) {
+    try {
+      const updatedProfile = { ...storeProfile, ownerName: updatedOwnerName.trim() }
+      if (authProfile && updatedProfile.ownerName !== authProfile.name) {
+        updateCurrentAuthProfile(updatedProfile.ownerName)
+      }
+      saveDemoStoreProfile(updatedProfile, accountIdentity)
+      setStoreProfile(updatedProfile)
+      setProfileSaveError('')
+      setProfileSaved(true)
+    } catch (error) {
+      setProfileSaved(false)
+      setProfileSaveError(
+        error instanceof Error ? error.message : 'Profil gagal disimpan.',
+      )
+    }
+  }
+
   function updateProducts(nextProducts: Product[]) {
-    setProductList(nextProducts)
+    try {
+      saveProducts(accountIdentity, nextProducts)
+      setProductList(nextProducts)
+      setDataError('')
+    } catch (error) {
+      setDataError(
+        error instanceof Error ? error.message : 'Produk gagal disimpan.',
+      )
+      return
+    }
     setCart((current) =>
       Object.fromEntries(
         Object.entries(current).flatMap(([id, quantity]) => {
@@ -393,6 +511,10 @@ function DashboardPage({
       ),
     )
   }
+
+  const cashierCategories = [
+    ...new Set([...productCategories, ...categories]),
+  ].filter((item) => item !== 'Semua')
 
   return (
     <main className="cashier-app">
@@ -409,7 +531,7 @@ function DashboardPage({
           <Store size={18} />
           <div>
             <strong>{storeProfile.storeName || 'Nama Warung'}</strong>
-            <span>● {storeProfile.operatingHours}</span>
+            <span>{ownerName} · ● {storeProfile.operatingHours}</span>
           </div>
         </div>
 
@@ -445,18 +567,22 @@ function DashboardPage({
       <section className="cashier-main">
         <header className="cashier-topbar">
           <div>
-            <h1>Halo, {storeProfile.ownerName || 'Pemilik Warung'}!</h1>
+            <h1>Halo, {ownerName || 'Pemilik Warung'}!</h1>
             <p>{todayLabel}</p>
           </div>
 
           <div className="topbar-info">
             <span className="online-badge">● Kasir Online</span>
             <span className="balance-badge">
-              <Wallet size={13} /> Kas Fisik: Rp 450.000
+            <Wallet size={13} /> Kas transaksi hari ini: {formatRupiah(cashReceivedToday)}
             </span>
-            <span className="user-avatar">{ownerInitials || 'PW'}</span>
+            <span className="user-avatar" title={ownerName}>{ownerInitials || 'PW'}</span>
           </div>
         </header>
+
+        {dataError && (
+          <p className="cashier-notice" role="alert">{dataError}</p>
+        )}
 
         {activeMenu === 'Dashboard' ? (
           <OverviewPage
@@ -466,14 +592,13 @@ function DashboardPage({
           />
         ) : activeMenu === 'Profil Warung' ? (
           <ProfileSettings
-            profile={storeProfile}
+            key={authProfile?.name ?? storeProfile.ownerName}
+            profile={profileForDisplay}
             onChange={updateStoreProfile}
-            onSave={() => {
-              saveDemoStoreProfile(storeProfile)
-              setProfileSaved(true)
-            }}
+            onSave={saveStoreProfile}
             saved={profileSaved}
             onLogout={handleLogout}
+            saveError={profileSaveError}
           />
         ) : activeMenu === 'Produk' ? (
           <ProductsPage
@@ -481,7 +606,7 @@ function DashboardPage({
             products={productList}
             categories={categories}
             onProductsChange={updateProducts}
-            onCategoriesChange={setCategories}
+            onCategoriesChange={updateCategories}
             initialFormOpen={initialProductFormOpen}
           />
         ) : activeMenu === 'Kategori' ? (
@@ -489,11 +614,11 @@ function DashboardPage({
             categories={categories}
             products={productList}
             sales={sales}
-            onCategoriesChange={setCategories}
+            onCategoriesChange={updateCategories}
             onProductsChange={updateProducts}
           />
         ) : activeMenu === 'Laporan Omzet' ? (
-          <ReportsPage sales={sales} />
+          <ReportsPage sales={sales} storeName={storeProfile.storeName} />
         ) : (
         <div className="cashier-workspace">
           <section className="product-section">
@@ -504,11 +629,11 @@ function DashboardPage({
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari produk (ketik beras, minyak, rokok, mie...)"
               />
-              <span>▥ Pindai</span>
+              <span title="Pemindaian produk belum tersedia">▥ Pindai belum tersedia</span>
             </div>
 
             <div className="category-list">
-              {productCategories.map((item) => (
+              {cashierCategories.map((item) => (
                 <button
                   key={item}
                   className={category === item ? 'selected' : ''}
@@ -591,7 +716,7 @@ function DashboardPage({
             </div>
 
             <div className="cart-subheading">
-              <span>#TRX-DEMO-0001</span>
+              <span>Transaksi baru</span>
               <span>{cartItems.length} Macam Barang</span>
             </div>
 
@@ -699,7 +824,7 @@ function DashboardPage({
             </button>
 
             <p className="cashier-footnote">
-              ⚡ Pencatatan transaksi demo belum disimpan ke server.
+              Transaksi lokal disimpan di browser ini dan belum tersinkron ke server.
             </p>
           </aside>
         </div>

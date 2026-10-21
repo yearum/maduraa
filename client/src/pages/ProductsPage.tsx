@@ -111,7 +111,7 @@ function ProductsPage({
   }
 
   function deleteProduct(product: Product) {
-    if (!window.confirm(`Hapus produk "${product.name}" dari daftar demo?`)) {
+    if (!window.confirm(`Hapus produk "${product.name}" dari data akun ini?`)) {
       return
     }
     onProductsChange(products.filter((item) => item.id !== product.id))
@@ -138,7 +138,7 @@ function ProductsPage({
     )
     const link = document.createElement('a')
     link.href = url
-    link.download = 'daftar-produk-demo.csv'
+    link.download = 'daftar-produk.csv'
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
