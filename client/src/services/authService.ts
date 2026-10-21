@@ -112,3 +112,18 @@ export function hasAuthToken(): boolean {
     return false
   }
 }
+
+export function clearAuthToken(): boolean {
+  let cleared = true
+
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    try {
+      storage.removeItem(authTokenKey)
+    } catch (error) {
+      console.error('Gagal menghapus sesi autentikasi dari browser:', error)
+      cleared = false
+    }
+  }
+
+  return cleared
+}
