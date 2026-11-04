@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import {
   Store,
   Eye,
@@ -10,7 +10,7 @@ import {
 import {
   AuthError,
   getAuthErrorMessage,
-  validateEmail,
+  validateUsername,
 } from '../services/authService'
 import { useAuth } from '../contexts/useAuth'
 import { useDemoStore } from '../contexts/useDemoStore'
@@ -20,10 +20,10 @@ function LoginPage() {
   const navigate = useNavigate()
   const { mode, user, signIn, signOut, loading: authLoading, error: authError } = useAuth()
   const demo = useDemoStore()
-  const [identity, setIdentity] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [identityError, setIdentityError] = useState('')
+  const [usernameError, setUsernameError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -32,16 +32,16 @@ function LoginPage() {
     event.preventDefault()
     if (isLoading || authLoading) return
 
-    setIdentityError('')
+    setUsernameError('')
     setPasswordError('')
     setSubmitError('')
 
-    const normalizedIdentity = identity.trim()
+    const normalizedUsername = username.trim()
     let hasValidationError = false
 
-    const identityValidationError = validateEmail(normalizedIdentity)
-    if (identityValidationError) {
-      setIdentityError(identityValidationError)
+    const usernameValidationError = validateUsername(normalizedUsername)
+    if (usernameValidationError) {
+      setUsernameError(usernameValidationError)
       hasValidationError = true
     }
 
@@ -55,10 +55,10 @@ function LoginPage() {
     setIsLoading(true)
 
     try {
-      const signedInUser = await signIn(normalizedIdentity, password)
+      const signedInUser = await signIn(normalizedUsername, password)
       if (mode === 'prototype') {
         try {
-          demo.startSession(signedInUser.name, signedInUser.email)
+          demo.startSession(signedInUser.name, signedInUser.identifier)
         } catch (error) {
           await signOut()
           throw error
@@ -107,31 +107,31 @@ function LoginPage() {
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
-            <label htmlFor="identity">Email</label>
+            <label htmlFor="username">Username</label>
 
             <div className="login-input-wrap">
               <input
-                id="identity"
-                name="identity"
-                type="email"
-                placeholder="Masukkan email"
-                value={identity}
+                id="username"
+                name="username"
+                type="text"
+                placeholder="Masukkan username"
+                value={username}
                 onChange={(event) => {
-                  setIdentity(event.target.value)
-                  setIdentityError('')
+                  setUsername(event.target.value)
+                  setUsernameError('')
                   setSubmitError('')
                 }}
-                autoComplete="email"
-                aria-invalid={Boolean(identityError)}
-                aria-describedby={identityError ? 'identity-error' : undefined}
+                autoComplete="username"
+                aria-invalid={Boolean(usernameError)}
+                aria-describedby={usernameError ? 'username-error' : undefined}
                 required
               />
               <Store size={16} aria-hidden="true" />
             </div>
-            {identityError && (
-              <p className="password-hint" id="identity-error">
+            {usernameError && (
+              <p className="password-hint" id="username-error" role="alert">
                 <CircleAlert size={12} aria-hidden="true" />
-                {identityError}
+                {usernameError}
               </p>
             )}
           </div>
@@ -194,7 +194,7 @@ function LoginPage() {
         </aside>
 
         <footer className="login-footer">
-          Belum punya akun warung? <Link to="/register">Daftar sekarang</Link>
+          Akun dibuat oleh Owner atau Franchise Manager.
         </footer>
       </section>
     </main>
