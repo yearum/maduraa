@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
   Store,
   Eye,
@@ -9,19 +9,19 @@ import {
 } from 'lucide-react'
 import {
   AuthError,
-  isLocalAuthEnabled,
-  loginLocalUser,
-  loginUser,
-  saveAuthToken,
-  validateIdentity,
+  getAuthErrorMessage,
+  validateEmail,
 } from '../services/authService'
+import { useAuth } from '../contexts/useAuth'
+import { useDemoStore } from '../contexts/useDemoStore'
 import './LoginPage.css'
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { mode, user, signIn, signOut, loading: authLoading, error: authError } = useAuth()
+  const demo = useDemoStore()
   const [identity, setIdentity] = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [identityError, setIdentityError] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -30,7 +30,7 @@ function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (isLoading) return
+    if (isLoading || authLoading) return
 
     setIdentityError('')
     setPasswordError('')
@@ -39,7 +39,7 @@ function LoginPage() {
     const normalizedIdentity = identity.trim()
     let hasValidationError = false
 
-    const identityValidationError = validateIdentity(normalizedIdentity)
+    const identityValidationError = validateEmail(normalizedIdentity)
     if (identityValidationError) {
       setIdentityError(identityValidationError)
       hasValidationError = true
@@ -48,9 +48,6 @@ function LoginPage() {
     if (!password) {
       setPasswordError('Kata sandi wajib diisi.')
       hasValidationError = true
-    } else if (password.length < 6) {
-      setPasswordError('Kata sandi harus terdiri dari minimal 6 karakter.')
-      hasValidationError = true
     }
 
     if (hasValidationError) return
@@ -58,35 +55,40 @@ function LoginPage() {
     setIsLoading(true)
 
     try {
-      if (isLocalAuthEnabled()) {
-        const session = await loginLocalUser(normalizedIdentity, password)
-        saveAuthToken(session.token, remember, session.profile)
-        navigate('/dashboard', { replace: true })
-        return
+      const signedInUser = await signIn(normalizedIdentity, password)
+      if (mode === 'prototype') {
+        try {
+          demo.startSession(signedInUser.name, signedInUser.email)
+        } catch (error) {
+          await signOut()
+          throw error
+        }
       }
-
-      if (!normalizedIdentity.includes('@')) {
-        setIdentityError('Login dengan nomor HP belum tersedia pada server.')
-        return
-      }
-
-      const { token } = await loginUser(normalizedIdentity, password)
-      saveAuthToken(token, remember, {
-        name: normalizedIdentity,
-        identity: normalizedIdentity,
-      })
       navigate('/dashboard', { replace: true })
     } catch (loginError) {
       if (loginError instanceof AuthError) {
         setSubmitError(loginError.message)
       } else {
-        console.error('Kesalahan tidak terduga saat login:', loginError)
-        setSubmitError('Terjadi kesalahan saat login. Silakan coba lagi.')
+        setSubmitError(getAuthErrorMessage(loginError))
       }
     } finally {
       setIsLoading(false)
     }
   }
+
+  if (authLoading) {
+    return (
+      <main className="login-page">
+        <section className="login-card" role="status">
+          Memeriksa sesi akun...
+        </section>
+      </main>
+    )
+  }
+
+  if (user) return <Navigate to="/dashboard" replace />
+
+  const visibleError = submitError || authError
 
   return (
     <main className="login-page">
@@ -96,30 +98,30 @@ function LoginPage() {
           <p>Catat transaksi dan pantau omzet warung dengan mudah</p>
         </header>
 
-        {submitError && (
+        {visibleError && (
           <div className="login-alert" role="alert">
             <CircleAlert size={16} aria-hidden="true" />
-            <span>{submitError}</span>
+            <span>{visibleError}</span>
           </div>
         )}
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
-            <label htmlFor="identity">Email atau Nomor HP</label>
+            <label htmlFor="identity">Email</label>
 
             <div className="login-input-wrap">
               <input
                 id="identity"
                 name="identity"
-                type="text"
-                placeholder="Masukkan email atau nomor HP"
+                type="email"
+                placeholder="Masukkan email"
                 value={identity}
                 onChange={(event) => {
                   setIdentity(event.target.value)
                   setIdentityError('')
                   setSubmitError('')
                 }}
-                autoComplete="username"
+                autoComplete="email"
                 aria-invalid={Boolean(identityError)}
                 aria-describedby={identityError ? 'identity-error' : undefined}
                 required
@@ -174,15 +176,6 @@ function LoginPage() {
               </p>
             )}
           </div>
-
-          <label className="remember-option">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(event) => setRemember(event.target.checked)}
-            />
-            <span>Ingat saya di komputer kasir ini</span>
-          </label>
 
           <button
             className="login-submit"

@@ -1,8 +1,16 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { hasAuthToken } from '../services/authService'
+import { useAuth } from '../contexts/useAuth'
+import { useDemoStore } from '../contexts/useDemoStore'
 
 function ProtectedRoute() {
-  return hasAuthToken() ? <Outlet /> : <Navigate to="/login" replace />
+  const { mode, user, loading } = useAuth()
+  const demo = useDemoStore()
+
+  if (loading || (mode === 'prototype' && demo.loading)) {
+    return <p role="status">Memeriksa sesi...</p>
+  }
+
+  return user ? <Outlet /> : <Navigate to="/login" replace />
 }
 
 export default ProtectedRoute

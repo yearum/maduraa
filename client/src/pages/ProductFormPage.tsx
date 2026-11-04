@@ -106,6 +106,23 @@ function ProductFormPage({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!name.trim()) {
+      setFormError('Nama produk wajib diisi.')
+      return
+    }
+    if (
+      !Number.isFinite(costValue) ||
+      costValue < 0 ||
+      !Number.isFinite(priceValue) ||
+      priceValue < 0
+    ) {
+      setFormError('Harga modal dan harga jual tidak boleh negatif.')
+      return
+    }
+    if (!Number.isFinite(Number(stock)) || Number(stock) < 0) {
+      setFormError('Stok tidak boleh negatif.')
+      return
+    }
     if (priceValue <= costValue) {
       setFormError('Harga jual harus lebih tinggi dari harga modal untuk mendapatkan keuntungan.')
       return

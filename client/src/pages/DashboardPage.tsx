@@ -1,5 +1,5 @@
 ﻿
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type SetStateAction } from 'react'
 import {
   LayoutDashboard,
   ShoppingBasket,
@@ -23,12 +23,11 @@ import {
   Printer,
 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  clearAuthToken,
-  updateCurrentAuthProfile,
-} from '../services/authService'
 import { useAuthProfile } from '../hooks/useAuthProfile'
+import { useDemoStore } from '../contexts/useDemoStore'
+import { useAuth } from '../contexts/useAuth'
 import {
+  initialStoreProfile,
   loadDemoStoreProfile,
   saveDemoStoreProfile,
   type StoreProfile,
@@ -45,6 +44,7 @@ import ProductsPage from './ProductsPage'
 import ReportsPage from './ReportsPage'
 import CategoriesPage from './CategoriesPage'
 import OverviewPage from './OverviewPage'
+import ReceiptDialog from '../components/ReceiptDialog'
 import {
   formatRupiah,
   initialProducts,
@@ -59,7 +59,8 @@ type ProfileSettingsProps = {
   onChange: (field: keyof StoreProfile, value: string) => void
   onSave: (ownerName: string) => void
   saved: boolean
-  onLogout: () => void
+  onLogout: () => Promise<void>
+  isLoggingOut: boolean
   saveError: string
 }
 
@@ -69,6 +70,7 @@ function ProfileSettings({
   onSave,
   saved,
   onLogout,
+  isLoggingOut,
   saveError,
 }: ProfileSettingsProps) {
   const [ownerName, setOwnerName] = useState(profile.ownerName)
@@ -107,8 +109,14 @@ function ProfileSettings({
           <h2>Profil Warung &amp; Akun</h2>
           <p>Kelola identitas warung, informasi cetak struk, dan hak akses staf kasir.</p>
         </div>
-        <button className="profile-logout" type="button" onClick={onLogout}>
-          <LogOut size={14} /> Keluar Akun (Logout)
+        <button
+          className="profile-logout"
+          type="button"
+          onClick={() => void onLogout()}
+          disabled={isLoggingOut}
+          aria-busy={isLoggingOut}
+        >
+          <LogOut size={14} /> {isLoggingOut ? 'Sedang keluar...' : 'Keluar Akun (Logout)'}
         </button>
       </header>
 
@@ -171,6 +179,7 @@ function ProfileSettings({
                 />
               </label>
               {field('storeName', 'Nama Warung')}
+              {field('phone', 'Nomor WhatsApp', 'tel')}
               {field('operatingHours', 'Status Operasional')}
               {field('address', 'Alamat Lengkap Warung')}
               {field('receiptFooter', 'Pesan Kaki Struk (Footer Receipt)')}
@@ -226,8 +235,13 @@ function DashboardPage({
 }: DashboardPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { mode, signOut, updateProfileName } = useAuth()
+  const demo = useDemoStore()
+  const demoMode = mode === 'prototype'
   const authProfile = useAuthProfile()
-  const accountIdentity = authProfile?.identity ?? 'shared'
+  const accountIdentity = demoMode
+    ? `prototype:${authProfile?.identity ?? ''}`
+    : authProfile?.identity ?? 'shared'
   const [menuOverride, setMenuOverride] = useState<{
     pathname: string
     menu: string
@@ -236,19 +250,48 @@ function DashboardPage({
     menuOverride?.pathname === location.pathname
       ? menuOverride.menu
       : initialSection
-  const [productList, setProductList] = useState(() =>
-    loadProducts(accountIdentity, initialProducts),
+  const [localProductList, setLocalProductList] = useState(() =>
+    demoMode && demo.data
+      ? demo.data.products
+      : demoMode
+        ? initialProducts
+        : loadProducts(accountIdentity, initialProducts),
   )
-  const [categories, setCategories] = useState(() =>
-    loadCategories(
-      accountIdentity,
-      productCategories.filter((category) => category !== 'Semua'),
-    ),
+  const productList = demoMode
+    ? demo.data?.products ?? localProductList
+    : localProductList
+  const [localCategories, setLocalCategories] = useState(() =>
+    demoMode && demo.data
+      ? demo.data.categories
+      : demoMode
+        ? productCategories.filter((category) => category !== 'Semua')
+        : loadCategories(
+            accountIdentity,
+            productCategories.filter((category) => category !== 'Semua'),
+          ),
   )
-  const [sales, setSales] = useState(() =>
-    loadSales(accountIdentity, initialDemoSales),
+  const categories = demoMode
+    ? demo.data?.categories ?? localCategories
+    : localCategories
+  const [localSales, setLocalSales] = useState(() =>
+    demoMode && demo.data
+      ? demo.data.sales
+      : demoMode
+        ? initialDemoSales
+        : loadSales(accountIdentity, initialDemoSales),
   )
-  const [storeProfile, setStoreProfile] = useState(() => {
+  const sales = demoMode ? demo.data?.sales ?? localSales : localSales
+  const [localStoreProfile, setLocalStoreProfile] = useState(() => {
+    if (demoMode && demo.data) return demo.data.storeProfile
+    if (demoMode) {
+      return {
+        ...initialStoreProfile,
+        ownerName: authProfile?.name ?? 'Pemilik Warung',
+        email: authProfile?.identity ?? '',
+        phone: '',
+      }
+    }
+
     const savedProfile = loadDemoStoreProfile(accountIdentity)
     const identity = authProfile?.identity ?? ''
     return {
@@ -258,21 +301,97 @@ function DashboardPage({
       phone: identity.startsWith('+62') ? identity : '',
     }
   })
+  const storeProfile = demoMode
+    ? demo.data?.storeProfile ?? localStoreProfile
+    : localStoreProfile
   const [profileSaved, setProfileSaved] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState('')
   const [dataError, setDataError] = useState('')
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [category, setCategory] = useState('Semua')
   const [search, setSearch] = useState('')
-  const [cart, setCart] = useState<Record<number, number>>({})
+  const [localCart, setLocalCart] = useState<Record<number, number>>({})
+  const cart = demoMode ? demo.data?.cart ?? localCart : localCart
   const [cash, setCash] = useState('200000')
   const [discount, setDiscount] = useState(0)
   const [notice, setNotice] = useState('')
+  const [selectedReceipt, setSelectedReceipt] =
+    useState<SaleTransaction | null>(null)
 
-  function handleLogout() {
-    if (clearAuthToken()) {
-      navigate('/login', { replace: true })
+  function setProductList(products: Product[]) {
+    if (demoMode) {
+      demo.updateProducts(products)
     } else {
-      setNotice('Sesi tidak dapat dihapus dari browser. Silakan coba lagi.')
+      setLocalProductList(products)
+    }
+  }
+
+  function setCategories(nextCategories: string[]) {
+    if (demoMode) {
+      demo.updateCategories(nextCategories)
+    } else {
+      setLocalCategories(nextCategories)
+    }
+  }
+
+  function setSales(nextSales: SaleTransaction[]) {
+    if (demoMode && demo.data) {
+      demo.updateSales(nextSales)
+    } else {
+      setLocalSales(nextSales)
+    }
+  }
+
+  function setStoreProfile(
+    nextProfile: SetStateAction<StoreProfile>,
+    syncUserName = false,
+  ) {
+    if (demoMode && demo.data) {
+      const updatedProfile =
+        typeof nextProfile === 'function'
+          ? nextProfile(demo.data.storeProfile)
+          : nextProfile
+      demo.updateProfile(updatedProfile, syncUserName)
+    } else {
+      setLocalStoreProfile(nextProfile)
+    }
+  }
+
+  function setCart(
+    nextCart:
+      | Record<number, number>
+      | ((current: Record<number, number>) => Record<number, number>),
+  ) {
+    if (demoMode) {
+      try {
+        demo.updateCart(nextCart)
+        setDataError('')
+      } catch (error) {
+        setDataError(
+          error instanceof Error ? error.message : 'Keranjang gagal disimpan.',
+        )
+      }
+    } else {
+      setLocalCart(nextCart)
+    }
+  }
+
+  async function handleLogout() {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+
+    try {
+      await signOut()
+      if (mode === 'prototype') demo.logout()
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setDataError(
+        error instanceof Error
+          ? error.message
+          : 'Tidak dapat keluar dari akun. Silakan coba lagi.',
+      )
+    } finally {
+      setIsLoggingOut(false)
     }
   }
 
@@ -280,8 +399,16 @@ function DashboardPage({
   const profileForDisplay = {
     ...storeProfile,
     ownerName,
-    email: authProfile?.identity.includes('@') ? authProfile.identity : '',
-    phone: authProfile?.identity.startsWith('+62') ? authProfile.identity : '',
+    email: demoMode
+      ? storeProfile.email
+      : authProfile?.identity.includes('@')
+        ? authProfile.identity
+        : '',
+    phone: demoMode
+      ? storeProfile.phone
+      : authProfile?.identity.startsWith('+62')
+        ? authProfile.identity
+        : '',
   }
   const ownerInitials = ownerName
     .trim()
@@ -376,6 +503,22 @@ function DashboardPage({
       return
     }
 
+    if (demoMode) {
+      try {
+        const transaction = demo.checkout(discount, cashAmount)
+        setSelectedReceipt(transaction)
+        setDataError('')
+        setNotice('Transaksi berhasil dicatat.')
+        setCash('200000')
+        setDiscount(0)
+      } catch (error) {
+        setDataError(
+          error instanceof Error ? error.message : 'Transaksi gagal disimpan.',
+        )
+      }
+      return
+    }
+
     const now = new Date()
     const date = [
       now.getFullYear(),
@@ -387,14 +530,22 @@ function DashboardPage({
       id: `TRX-${date.replaceAll('-', '')}-${String(now.getTime()).slice(-4)}`,
       date,
       time,
+      createdAt: now.toISOString(),
       items: cartItems.map(
         (product) => `${product.name} (${cart[product.id]}x)`,
       ),
       productLines: cartItems.map((product) => ({
         productId: product.id,
+        productName: product.name,
+        productCategory: product.category,
         quantity: cart[product.id] ?? 0,
+        unitPrice: product.price,
+        unitCost: product.cost,
+        unit: product.unit,
       })),
       total,
+      discount,
+      cashReceived: cashAmount,
       profit: Math.max(
         0,
         cartItems.reduce(
@@ -413,8 +564,10 @@ function DashboardPage({
         stock: Math.max(0, product.stock - (cart[product.id] ?? 0)),
       }))
     try {
-      saveSales(accountIdentity, nextSales)
-      saveProducts(accountIdentity, nextProducts)
+      if (!demoMode) {
+        saveSales(accountIdentity, nextSales)
+        saveProducts(accountIdentity, nextProducts)
+      }
     } catch (error) {
       setDataError(
         error instanceof Error
@@ -425,8 +578,9 @@ function DashboardPage({
     }
     setSales(nextSales)
     setProductList(nextProducts)
+    setSelectedReceipt(transaction)
     setDataError('')
-    setNotice('Transaksi berhasil dicatat dan disimpan di browser ini.')
+    setNotice('Transaksi berhasil dicatat.')
     setCart({})
     setCash('200000')
     setDiscount(0)
@@ -450,13 +604,20 @@ function DashboardPage({
   }
 
   function updateStoreProfile(field: keyof StoreProfile, value: string) {
-    setStoreProfile((current) => ({ ...current, [field]: value }))
+    try {
+      setStoreProfile((current) => ({ ...current, [field]: value }))
+      setDataError('')
+    } catch (error) {
+      setDataError(
+        error instanceof Error ? error.message : 'Profil warung gagal disimpan.',
+      )
+    }
     setProfileSaved(false)
   }
 
   function updateCategories(nextCategories: string[]) {
     try {
-      saveCategories(accountIdentity, nextCategories)
+      if (!demoMode) saveCategories(accountIdentity, nextCategories)
       setCategories(nextCategories)
       setCategory((current) =>
         current !== 'Semua' && !nextCategories.includes(current)
@@ -471,14 +632,21 @@ function DashboardPage({
     }
   }
 
-  function saveStoreProfile(updatedOwnerName: string) {
+  async function saveStoreProfile(updatedOwnerName: string) {
     try {
       const updatedProfile = { ...storeProfile, ownerName: updatedOwnerName.trim() }
-      if (authProfile && updatedProfile.ownerName !== authProfile.name) {
-        updateCurrentAuthProfile(updatedProfile.ownerName)
+      if (demoMode) {
+        if (updatedProfile.ownerName !== authProfile?.name) {
+          await updateProfileName(updatedProfile.ownerName)
+        }
+        setStoreProfile(updatedProfile, true)
+      } else if (authProfile && updatedProfile.ownerName !== authProfile.name) {
+        await updateProfileName(updatedProfile.ownerName)
       }
-      saveDemoStoreProfile(updatedProfile, accountIdentity)
-      setStoreProfile(updatedProfile)
+      if (!demoMode) {
+        saveDemoStoreProfile(updatedProfile, accountIdentity)
+        setStoreProfile(updatedProfile)
+      }
       setProfileSaveError('')
       setProfileSaved(true)
     } catch (error) {
@@ -491,7 +659,7 @@ function DashboardPage({
 
   function updateProducts(nextProducts: Product[]) {
     try {
-      saveProducts(accountIdentity, nextProducts)
+      if (!demoMode) saveProducts(accountIdentity, nextProducts)
       setProductList(nextProducts)
       setDataError('')
     } catch (error) {
@@ -500,16 +668,18 @@ function DashboardPage({
       )
       return
     }
-    setCart((current) =>
-      Object.fromEntries(
-        Object.entries(current).flatMap(([id, quantity]) => {
-          const product = nextProducts.find((item) => item.id === Number(id))
-          return product && product.stock > 0 && product.posEnabled !== false
-            ? [[Number(id), Math.min(quantity, product.stock)]]
-            : []
-        }),
-      ),
-    )
+    if (!demoMode) {
+      setCart((current) =>
+        Object.fromEntries(
+          Object.entries(current).flatMap(([id, quantity]) => {
+            const product = nextProducts.find((item) => item.id === Number(id))
+            return product && product.stock > 0 && product.posEnabled !== false
+              ? [[Number(id), Math.min(quantity, product.stock)]]
+              : []
+          }),
+        ),
+      )
+    }
   }
 
   const cashierCategories = [
@@ -517,6 +687,7 @@ function DashboardPage({
   ].filter((item) => item !== 'Semua')
 
   return (
+    <>
     <main className="cashier-app">
       <aside className="cashier-sidebar">
         <div className="brand">
@@ -557,10 +728,12 @@ function DashboardPage({
 
         <button
           className="logout-button"
-          onClick={handleLogout}
+          onClick={() => void handleLogout()}
+          disabled={isLoggingOut}
+          aria-busy={isLoggingOut}
         >
           <LogOut size={16} />
-          Keluar
+          {isLoggingOut ? 'Sedang keluar...' : 'Keluar'}
         </button>
       </aside>
 
@@ -572,7 +745,9 @@ function DashboardPage({
           </div>
 
           <div className="topbar-info">
-            <span className="online-badge">● Kasir Online</span>
+            <span className="online-badge">
+              ● Kasir Aktif
+            </span>
             <span className="balance-badge">
             <Wallet size={13} /> Kas transaksi hari ini: {formatRupiah(cashReceivedToday)}
             </span>
@@ -580,13 +755,14 @@ function DashboardPage({
           </div>
         </header>
 
-        {dataError && (
-          <p className="cashier-notice" role="alert">{dataError}</p>
+        {(dataError || (demoMode && demo.error)) && (
+          <p className="cashier-notice" role="alert">{dataError || demo.error}</p>
         )}
 
         {activeMenu === 'Dashboard' ? (
           <OverviewPage
             products={productList}
+            categories={categories}
             sales={sales}
             onNavigate={handleMenu}
           />
@@ -598,6 +774,7 @@ function DashboardPage({
             onSave={saveStoreProfile}
             saved={profileSaved}
             onLogout={handleLogout}
+            isLoggingOut={isLoggingOut}
             saveError={profileSaveError}
           />
         ) : activeMenu === 'Produk' ? (
@@ -618,7 +795,7 @@ function DashboardPage({
             onProductsChange={updateProducts}
           />
         ) : activeMenu === 'Laporan Omzet' ? (
-          <ReportsPage sales={sales} storeName={storeProfile.storeName} />
+          <ReportsPage sales={sales} storeProfile={storeProfile} />
         ) : (
         <div className="cashier-workspace">
           <section className="product-section">
@@ -824,13 +1001,21 @@ function DashboardPage({
             </button>
 
             <p className="cashier-footnote">
-              Transaksi lokal disimpan di browser ini dan belum tersinkron ke server.
+              Data transaksi dan stok diperbarui.
             </p>
           </aside>
         </div>
         )}
       </section>
     </main>
+    {selectedReceipt && (
+      <ReceiptDialog
+        sale={selectedReceipt}
+        storeProfile={storeProfile}
+        onClose={() => setSelectedReceipt(null)}
+      />
+    )}
+    </>
   )
 }
 

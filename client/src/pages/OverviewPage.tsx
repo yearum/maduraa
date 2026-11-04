@@ -16,6 +16,7 @@ import './OverviewPage.css'
 
 type OverviewPageProps = {
   products: Product[]
+  categories: string[]
   sales: SaleTransaction[]
   onNavigate: (menu: string) => void
 }
@@ -27,7 +28,7 @@ function localDateString(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function OverviewPage({ products, sales, onNavigate }: OverviewPageProps) {
+function OverviewPage({ products, categories, sales, onNavigate }: OverviewPageProps) {
   const today = localDateString(new Date())
   const monthStart = `${today.slice(0, 7)}-01`
   const todaySales = sales.filter((sale) => sale.date === today)
@@ -116,6 +117,12 @@ function OverviewPage({ products, sales, onNavigate }: OverviewPageProps) {
         </article>
       </section>
 
+      <section className="overview-quick-stats" aria-label="Ringkasan data warung">
+        <article><span>Total Produk</span><strong>{products.length}</strong></article>
+        <article><span>Total Kategori</span><strong>{categories.length}</strong></article>
+        <article><span>Total Transaksi</span><strong>{sales.length}</strong></article>
+      </section>
+
       <div className="overview-columns">
         <section className="overview-panel best-seller-panel">
           <header>
@@ -174,6 +181,30 @@ function OverviewPage({ products, sales, onNavigate }: OverviewPageProps) {
           </button>
         </section>
       </div>
+
+      <section className="overview-activity">
+        <header>
+          <h3>Aktivitas Transaksi Terbaru</h3>
+          <button onClick={() => onNavigate('Laporan Omzet')}>Lihat semua</button>
+        </header>
+        {sales.length ? (
+          <ul>
+            {[...sales]
+              .sort((a, b) =>
+                `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`),
+              )
+              .slice(0, 4)
+              .map((sale) => (
+                <li key={sale.id}>
+                  <span><strong>#{sale.id}</strong><small>{sale.time} · {sale.items.join(', ')}</small></span>
+                  <strong>{formatRupiah(sale.total)}</strong>
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p className="overview-empty">Belum ada transaksi.</p>
+        )}
+      </section>
 
       <span className="overview-demo-note">
         <span>●</span> Data prototipe · ID laporan hari ini #{todayStamp}

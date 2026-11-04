@@ -50,7 +50,7 @@ export function loadDemoStoreProfile(identity = 'shared'): StoreProfile {
 
   const profile: unknown = JSON.parse(storedProfile)
   if (!isStoreProfile(profile)) {
-    throw new Error('Data profil demo warung tidak valid. Hapus data demo browser lalu daftar kembali.')
+    throw new Error('Data profil warung tidak valid. Periksa data tersimpan di browser.')
   }
   return profile
 }

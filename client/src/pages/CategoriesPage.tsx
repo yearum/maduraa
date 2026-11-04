@@ -49,11 +49,12 @@ function CategoriesPage({
       const matchingProduct = products.find(
         (product) => product.id === line.productId,
       )
-      if (!matchingProduct) continue
+      const category = line.productCategory ?? matchingProduct?.category
+      const unitPrice = line.unitPrice ?? matchingProduct?.price
+      if (!category || unitPrice === undefined) continue
       categorySales.set(
-        matchingProduct.category,
-        (categorySales.get(matchingProduct.category) ?? 0) +
-          matchingProduct.price * line.quantity,
+        category,
+        (categorySales.get(category) ?? 0) + unitPrice * line.quantity,
       )
     }
   }

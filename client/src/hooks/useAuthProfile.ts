@@ -1,18 +1,26 @@
-import { useEffect, useState } from 'react'
-import { getCurrentAuthProfile } from '../services/authService'
+import { useMemo } from 'react'
+import { useAuth } from '../contexts/useAuth'
+import type { AuthProfile } from '../services/authService'
 
-export function useAuthProfile() {
-  const [profile, setProfile] = useState(getCurrentAuthProfile)
+export function useAuthProfile(): AuthProfile | null {
+  const { user, session } = useAuth()
 
-  useEffect(() => {
-    const refreshProfile = () => setProfile(getCurrentAuthProfile())
-    window.addEventListener('maduraa-auth-profile-change', refreshProfile)
-    window.addEventListener('storage', refreshProfile)
-    return () => {
-      window.removeEventListener('maduraa-auth-profile-change', refreshProfile)
-      window.removeEventListener('storage', refreshProfile)
+  return useMemo(() => {
+    if (user) {
+      return {
+        name: user.name,
+        identity: user.email,
+      }
     }
-  }, [])
 
-  return profile
+    if (!session) return null
+
+    const identity = session.user.email ?? ''
+    const metadataName = session.user.user_metadata.name
+    const name =
+      typeof metadataName === 'string' && metadataName.trim()
+        ? metadataName.trim()
+        : identity.split('@')[0] || 'Pemilik Warung'
+    return { name, identity }
+  }, [session, user])
 }

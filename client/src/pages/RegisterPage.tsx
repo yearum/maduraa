@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { CircleAlert, Store } from 'lucide-react'
 import {
   AuthError,
-  isLocalAuthEnabled,
-  registerLocalAccount,
-  saveAuthToken,
-  validateIdentity,
+  getAuthErrorMessage,
+  validateEmail,
 } from '../services/authService'
+import { useAuth } from '../contexts/useAuth'
+import { useDemoStore } from '../contexts/useDemoStore'
 import './RegisterPage.css'
 
 type RegisterFields = {
@@ -21,6 +21,8 @@ type RegisterErrors = Partial<Record<keyof RegisterFields, string>>
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { mode, user, signUp, signOut, loading: authLoading } = useAuth()
+  const demo = useDemoStore()
   const [fields, setFields] = useState<RegisterFields>({
     name: '',
     identity: '',
@@ -29,6 +31,7 @@ function RegisterPage() {
   })
   const [errors, setErrors] = useState<RegisterErrors>({})
   const [submitError, setSubmitError] = useState('')
+  const [registrationMessage, setRegistrationMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   function updateField(field: keyof RegisterFields, value: string) {
@@ -41,6 +44,7 @@ function RegisterPage() {
         : {}),
     }))
     setSubmitError('')
+    setRegistrationMessage('')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -50,7 +54,7 @@ function RegisterPage() {
 
     const nextErrors: RegisterErrors = {}
     if (!fields.name.trim()) nextErrors.name = 'Nama wajib diisi.'
-    const identityError = validateIdentity(fields.identity)
+    const identityError = validateEmail(fields.identity)
     if (identityError) nextErrors.identity = identityError
     if (!fields.password) {
       nextErrors.password = 'Kata sandi wajib diisi.'
@@ -66,41 +70,51 @@ function RegisterPage() {
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    if (!isLocalAuthEnabled()) {
-      setSubmitError(
-        'Registrasi belum tersedia. Silakan hubungi administrator untuk membuat akun.',
-      )
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
-      const session = await registerLocalAccount(
+      const hasSession = await signUp(
         fields.name,
         fields.identity,
         fields.password,
       )
-      saveAuthToken(session.token, true, session.profile)
-      navigate('/dashboard', { replace: true })
+      if (hasSession) {
+        if (mode === 'prototype') {
+          try {
+            demo.startSession(fields.name, fields.identity)
+          } catch (error) {
+            await signOut()
+            throw error
+          }
+        }
+        navigate('/dashboard', { replace: true })
+      } else {
+        setRegistrationMessage(
+          'Pendaftaran berhasil. Periksa email Anda untuk menyelesaikan konfirmasi sebelum masuk.',
+        )
+      }
     } catch (registrationError) {
       if (registrationError instanceof AuthError) {
-        if (registrationError.message === 'Identitas ini sudah terdaftar.') {
-          setErrors((current) => ({
-            ...current,
-            identity: registrationError.message,
-          }))
-        } else {
-          setSubmitError(registrationError.message)
-        }
+        setSubmitError(registrationError.message)
       } else {
-        console.error('Kesalahan tidak terduga saat registrasi:', registrationError)
-        setSubmitError('Registrasi gagal. Silakan coba lagi.')
+        setSubmitError(getAuthErrorMessage(registrationError))
       }
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  if (authLoading) {
+    return (
+      <main className="register-page">
+        <section className="register-card" role="status">
+          Memeriksa sesi akun...
+        </section>
+      </main>
+    )
+  }
+
+  if (user) return <Navigate to="/dashboard" replace />
 
   return (
     <main className="register-page">
@@ -116,17 +130,22 @@ function RegisterPage() {
             <span>{submitError}</span>
           </div>
         )}
+        {registrationMessage && (
+          <p className="register-alert" role="status">
+            {registrationMessage}
+          </p>
+        )}
 
         <form className="register-form" onSubmit={handleSubmit} noValidate>
           <div className="register-field">
-            <label htmlFor="register-name">Nama</label>
+            <label htmlFor="register-name">Nama Lengkap</label>
             <div className="register-input-wrap">
               <input
                 id="register-name"
                 name="name"
                 type="text"
                 autoComplete="name"
-                placeholder="Masukkan nama"
+                placeholder="Masukkan nama lengkap"
                 value={fields.name}
                 onChange={(event) => updateField('name', event.target.value)}
                 aria-invalid={Boolean(errors.name)}
@@ -144,14 +163,14 @@ function RegisterPage() {
           </div>
 
           <div className="register-field">
-            <label htmlFor="register-identity">Email atau Nomor HP</label>
+            <label htmlFor="register-identity">Email</label>
             <div className="register-input-wrap">
               <input
                 id="register-identity"
                 name="identity"
-                type="text"
-                autoComplete="username"
-                placeholder="Email atau nomor HP (+62...)"
+                type="email"
+                autoComplete="email"
+                placeholder="Masukkan email"
                 value={fields.identity}
                 onChange={(event) =>
                   updateField('identity', event.target.value)

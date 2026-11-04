@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/supabase';
 
 // 1. Tentukan Interface / Tipe Data disesuaikan dengan tabel transactions
 export interface OmzetRecord {
@@ -11,6 +11,7 @@ export interface OmzetRecord {
 
 // 2. Helper untuk mengambil semua data transaksi
 export const getOmzetList = async (): Promise<OmzetRecord[]> => {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('transactions') // Diubah ke tabel resmi 'transactions'
     .select('*')
@@ -26,6 +27,7 @@ export const getOmzetList = async (): Promise<OmzetRecord[]> => {
 
 // 3. Helper untuk menambah data transaksi baru
 export const addOmzet = async (newRecord: OmzetRecord): Promise<OmzetRecord[]> => {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('transactions') // Diubah ke tabel resmi 'transactions'
     .insert([newRecord])

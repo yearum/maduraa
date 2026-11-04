@@ -2,10 +2,21 @@
   id: string
   date: string
   time: string
+  createdAt?: string
   items: string[]
-  productLines: { productId: number; quantity: number }[]
+  productLines: {
+    productId: number
+    quantity: number
+    productName?: string
+    productCategory?: string
+    unitPrice?: number
+    unitCost?: number
+    unit?: string
+  }[]
   total: number
   profit: number
+  discount?: number
+  cashReceived?: number
   payment: 'Tunai'
   status: 'Selesai'
   cashier: string
