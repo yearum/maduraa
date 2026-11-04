@@ -5,6 +5,7 @@ import { getSupabaseClient } from '../lib/supabase'
 export type AuthIdentity = {
   id: string
   email: string
+  identifier: string
   name: string
 }
 
@@ -14,7 +15,7 @@ export type RegistrationResult = {
 }
 
 export interface AuthAdapter {
-  signIn(email: string, password: string): Promise<AuthIdentity>
+  signIn(identifier: string, password: string): Promise<AuthIdentity>
   signUp(
     name: string,
     email: string,
@@ -40,22 +41,32 @@ function getDisplayName(user: User): string {
 }
 
 function asIdentity(user: User): AuthIdentity {
+  const email = user.email ?? ''
   return {
     id: user.id,
-    email: user.email ?? '',
+    email,
+    identifier: email,
     name: getDisplayName(user),
   }
 }
 
-function createPrototypeIdentity(email: string, name?: string): AuthIdentity {
-  const normalizedEmail = email.trim().toLowerCase()
+function createPrototypeIdentity(
+  identifier: string,
+  name?: string,
+  email = '',
+): AuthIdentity {
+  const normalizedIdentifier = identifier.trim()
   return {
     id:
       typeof globalThis.crypto?.randomUUID === 'function'
         ? globalThis.crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    email: normalizedEmail,
-    name: name?.trim() || normalizedEmail.split('@')[0] || 'Pemilik Warung',
+    email,
+    identifier: normalizedIdentifier,
+    name:
+      name?.trim() ||
+      normalizedIdentifier.split('@')[0] ||
+      'Pemilik Warung',
   }
 }
 
@@ -108,15 +119,19 @@ export function readPrototypeIdentity(): AuthIdentity | null {
   ) {
     throw new Error('Data sesi sementara tidak valid.')
   }
-  return { id: value.id, email: value.email, name: value.name }
+  const identifier =
+    'identifier' in value && typeof value.identifier === 'string'
+      ? value.identifier
+      : value.email
+  return { id: value.id, email: value.email, identifier, name: value.name }
 }
 
 export class PrototypeAuthAdapter implements AuthAdapter {
-  async signIn(email: string, password: string): Promise<AuthIdentity> {
+  async signIn(identifier: string, password: string): Promise<AuthIdentity> {
     assertPrototypeMode()
     if (!password) throw new Error('Kata sandi wajib diisi.')
     await new Promise((resolve) => window.setTimeout(resolve, 350))
-    const identity = createPrototypeIdentity(email)
+    const identity = createPrototypeIdentity(identifier)
     persistPrototypeIdentity(identity)
     return identity
   }
@@ -129,7 +144,7 @@ export class PrototypeAuthAdapter implements AuthAdapter {
     assertPrototypeMode()
     if (!password) throw new Error('Kata sandi wajib diisi.')
     await new Promise((resolve) => window.setTimeout(resolve, 350))
-    const identity = createPrototypeIdentity(email, name)
+    const identity = createPrototypeIdentity(email, name, email)
     persistPrototypeIdentity(identity)
     return { identity, requiresEmailConfirmation: false }
   }
@@ -148,13 +163,13 @@ export class PrototypeAuthAdapter implements AuthAdapter {
 }
 
 export class SupabaseAuthAdapter implements AuthAdapter {
-  async signIn(email: string, password: string): Promise<AuthIdentity> {
-    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (error) throw error
-    return asIdentity(data.user)
+  async signIn(identifier: string, password: string): Promise<AuthIdentity> {
+    if (!identifier.trim() || !password) {
+      throw new Error('Username dan kata sandi wajib diisi.')
+    }
+    throw new Error(
+      'Login username belum didukung. Backend autentikasi perlu menyediakan verifikasi username dan password.',
+    )
   }
 
   async signUp(

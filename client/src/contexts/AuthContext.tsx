@@ -113,10 +113,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [mode])
 
   async function signIn(
-    email: string,
+    username: string,
     password: string,
   ): Promise<AuthIdentity> {
-    const identity = await loginUser(email, password)
+    const identity = await loginUser(username, password)
     if (mode === 'prototype') {
       setState((current) => ({
         ...current,
