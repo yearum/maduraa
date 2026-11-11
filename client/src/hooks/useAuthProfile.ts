@@ -9,7 +9,7 @@ export function useAuthProfile(): AuthProfile | null {
     if (user) {
       return {
         name: user.name,
-        identity: user.email,
+        identity: user.identifier,
       }
     }
 

@@ -25,10 +25,19 @@ export function validateEmail(email: string): string | undefined {
   if (!normalizedEmail) {
     return 'Email wajib diisi.'
   }
-
   return emailPattern.test(normalizedEmail)
     ? undefined
     : 'Format email tidak valid.'
+}
+
+export function validateUsername(username: string): string | undefined {
+  const normalizedUsername = username.trim()
+
+  if (!normalizedUsername) return 'Username wajib diisi.'
+  if (/\s/.test(normalizedUsername)) {
+    return 'Username tidak boleh mengandung spasi.'
+  }
+  return undefined
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -58,9 +67,10 @@ export function getAuthErrorMessage(error: unknown): string {
   if (
     code === 'invalid_credentials' ||
     status === 401 ||
+    normalizedMessage.includes('username atau kata sandi salah') ||
     normalizedMessage.includes('invalid login credentials')
   ) {
-    return 'Email atau kata sandi salah. Periksa kembali data Anda.'
+    return 'Username atau kata sandi salah. Periksa kembali data Anda.'
   }
 
   if (
@@ -93,6 +103,9 @@ export function getAuthErrorMessage(error: unknown): string {
   if (message.includes('Konfigurasi Supabase tidak valid')) {
     return message
   }
+  if (message.includes('Login username belum didukung')) {
+    return message
+  }
   if (message.includes('Sesi sementara') || message.includes('Data sesi sementara')) {
     return message
   }
@@ -105,15 +118,15 @@ function asAuthError(error: unknown): AuthError {
 }
 
 export async function loginUser(
-  email: string,
+  username: string,
   password: string,
 ): Promise<AuthIdentity> {
-  const emailError = validateEmail(email)
-  if (emailError) throw new AuthError(emailError)
+  const usernameError = validateUsername(username)
+  if (usernameError) throw new AuthError(usernameError)
   if (!password) throw new AuthError('Kata sandi wajib diisi.')
 
   try {
-    return await getAuthAdapter().signIn(email.trim().toLowerCase(), password)
+    return await getAuthAdapter().signIn(username.trim(), password)
   } catch (error) {
     throw asAuthError(error)
   }

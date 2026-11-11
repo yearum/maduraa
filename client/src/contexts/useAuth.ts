@@ -12,7 +12,7 @@ export type AuthState = {
 }
 
 export type AuthContextValue = AuthState & {
-  signIn: (email: string, password: string) => Promise<AuthIdentity>
+  signIn: (username: string, password: string) => Promise<AuthIdentity>
   signUp: (name: string, email: string, password: string) => Promise<boolean>
   signOut: () => Promise<void>
   updateProfileName: (name: string) => Promise<void>
