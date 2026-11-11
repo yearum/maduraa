@@ -8,7 +8,6 @@ import {
   Search,
   Shapes,
   ShieldCheck,
-  Trash2,
   X,
 } from 'lucide-react'
 import { formatRupiah, type Product } from '../data/products'
@@ -19,8 +18,11 @@ type CategoriesPageProps = {
   categories: string[]
   products: Product[]
   sales: SaleTransaction[]
+  inactiveCategories: string[]
   onCategoriesChange: (categories: string[]) => void
   onProductsChange: (products: Product[]) => void
+  onToggleCategory: (category: string) => void
+  onRenameCategory: (previousName: string, nextName: string) => void
 }
 
 const iconPalette = [
@@ -35,8 +37,11 @@ function CategoriesPage({
   categories,
   products,
   sales,
+  inactiveCategories,
   onCategoriesChange,
   onProductsChange,
+  onToggleCategory,
+  onRenameCategory,
 }: CategoriesPageProps) {
   const [search, setSearch] = useState('')
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
@@ -71,6 +76,9 @@ function CategoriesPage({
   )
   const categorizedProductCount = products.filter((product) =>
     categories.includes(product.category),
+  ).length
+  const activeCategoryCount = categories.filter(
+    (category) => !inactiveCategories.includes(category),
   ).length
 
   function openAddDialog() {
@@ -110,6 +118,7 @@ function CategoriesPage({
       onCategoriesChange(
         categories.map((item) => item === editingCategory ? normalized : item),
       )
+      onRenameCategory(editingCategory, normalized)
       onProductsChange(
         products.map((product) =>
           product.category === editingCategory
@@ -119,22 +128,6 @@ function CategoriesPage({
       )
     }
     setModalOpen(false)
-  }
-
-  function deleteCategory(category: string) {
-    const productCount = products.filter(
-      (product) => product.category === category,
-    ).length
-    if (productCount > 0) {
-      window.alert(
-        `Kategori ini masih digunakan oleh ${productCount} produk. Pindahkan produk tersebut sebelum menghapus kategori.`,
-      )
-      return
-    }
-    if (!window.confirm(`Hapus kategori "${category}" dari prototipe?`)) {
-      return
-    }
-    onCategoriesChange(categories.filter((item) => item !== category))
   }
 
   return (
@@ -154,7 +147,7 @@ function CategoriesPage({
         <article>
           <span>Total Kategori</span>
           <strong>{categories.length}</strong>
-          <small><ShieldCheck size={10} /> Semua aktif di etalase</small>
+          <small><ShieldCheck size={10} /> {activeCategoryCount} kategori aktif</small>
           <Folder className="category-stat-icon green" size={22} />
         </article>
         <article>
@@ -220,11 +213,21 @@ function CategoriesPage({
                     <td className="category-sales-value">
                       {formatRupiah(categorySales.get(category) ?? 0)}
                     </td>
-                    <td><span className="category-active-badge">Aktif</span></td>
+                    <td>
+                      <span className={`category-active-badge ${inactiveCategories.includes(category) ? 'inactive' : ''}`}>
+                        {inactiveCategories.includes(category) ? 'Tidak Aktif' : 'Aktif'}
+                      </span>
+                    </td>
                     <td>
                       <div className="category-actions">
                         <button aria-label={`Edit kategori ${category}`} title="Edit" onClick={() => openEditDialog(category)}><Pencil size={13} /></button>
-                        <button aria-label={`Hapus kategori ${category}`} title="Hapus" onClick={() => deleteCategory(category)}><Trash2 size={13} /></button>
+                        <button
+                          className={`category-status-toggle ${inactiveCategories.includes(category) ? 'activate' : 'deactivate'}`}
+                          type="button"
+                          onClick={() => onToggleCategory(category)}
+                        >
+                          {inactiveCategories.includes(category) ? 'Aktifkan' : 'Nonaktifkan'}
+                        </button>
                       </div>
                     </td>
                   </tr>

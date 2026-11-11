@@ -10,13 +10,11 @@ Konfigurasi npm dan Vite berada di root repository. Jalankan `npm run dev` atau 
 
 ## Autentikasi dan Mode Prototype
 
-Salin `client/.env.example` menjadi `.env.local` di root repository untuk development. Atur `VITE_AUTH_MODE=prototype` untuk menggunakan form Login/Registrasi email dan password dengan mock authentication yang hanya aktif saat development. Session prototype hanya menyimpan identitas (nama dan email) di `sessionStorage`; password tidak pernah disimpan. Produk, kategori, transaksi, keranjang, dan profil warung disimpan di `sessionStorage` tab yang sama.
+Pada Fase 1, halaman Login hanya memvalidasi username dan kata sandi yang tidak kosong, lalu menampilkan pemberitahuan bahwa autentikasi akan dihubungkan pada fase integrasi backend. Halaman ini tidak membuat sesi, menyimpan kata sandi, atau mengirim permintaan autentikasi. Rute registrasi tidak tersedia. Halaman dashboard tetap memerlukan sesi yang sah; autentikasi sementara tidak disediakan.
 
-Mode prototype tidak mengirim request ke Supabase atau backend dan otomatis dinonaktifkan pada production build. Production selalu memilih Supabase Auth terlepas dari nilai `VITE_AUTH_MODE`.
+Untuk integrasi Supabase Auth pada fase berikutnya, atur `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_URL`, dan salah satu public key: `VITE_SUPABASE_PUBLISHABLE_KEY` atau `VITE_SUPABASE_ANON_KEY`. Ambil nilainya hanya dari project Supabase yang memang terhubung dengan Maduraa. Frontend hanya boleh menggunakan publishable/anon key; jangan pernah menggunakan `service_role`.
 
-Untuk konfigurasi Supabase Auth, atur `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_URL`, dan salah satu public key: `VITE_SUPABASE_PUBLISHABLE_KEY` atau `VITE_SUPABASE_ANON_KEY`. Ambil nilainya hanya dari project Supabase yang memang terhubung dengan Maduraa. Frontend hanya boleh menggunakan publishable/anon key; jangan pernah menggunakan `service_role`. Jika Supabase belum dikonfigurasi, Login, Registrasi, dan pemulihan session menampilkan pesan konfigurasi.
-
-Supabase data adapter belum dihubungkan karena schema data dan kebijakan RLS aplikasi belum diverifikasi. Adapter prototype dan interface data dipisahkan agar integrasi schema terverifikasi dapat dilakukan tanpa merombak form autentikasi dan komponen fitur.
+Supabase data adapter belum dihubungkan karena schema data dan kebijakan RLS aplikasi belum diverifikasi. Adapter data dan interface tetap perlu ditinjau sebelum integrasi schema terverifikasi.
 
 Backend Express masih memiliki endpoint autentikasi JWT dan route API yang memvalidasi token tersebut. Frontend saat ini tidak memanggil endpoint itu; jangan mencampur token backend dengan session Supabase. Jika route API tersebut akan dipakai oleh frontend, verifikasi token Supabase dan pemetaan user perlu ditangani sebagai perubahan backend terpisah sebelum integrasi data.
 

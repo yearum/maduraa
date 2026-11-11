@@ -12,6 +12,22 @@
   barcode?: string
   location?: string
   posEnabled?: boolean
+  isActive?: boolean
+}
+
+export const DEFAULT_MIN_STOCK = 5
+
+export function isProductActive(product: Product): boolean {
+  return product.stock > 0 && product.isActive !== false
+}
+
+export function getProductStockStatus(
+  product: Product,
+): 'safe' | 'low' | 'inactive' {
+  if (!isProductActive(product)) return 'inactive'
+  return product.stock <= (product.minStock ?? DEFAULT_MIN_STOCK)
+    ? 'low'
+    : 'safe'
 }
 
 export const initialProducts: Product[] = [

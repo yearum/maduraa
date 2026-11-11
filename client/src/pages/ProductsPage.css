@@ -147,7 +147,22 @@
 }
 
 .inventory-row-actions button:hover { background: #eff8f1; color: #078038; }
-.inventory-row-actions button:last-child:hover { background: #fff0f0; color: #d92d20; }
+.inventory-row-actions .inventory-status-toggle {
+  display: inline-flex;
+  width: auto;
+  min-width: 76px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #dfe4ec;
+  background: #fff;
+  font-size: 8px;
+  font-weight: 700;
+}
+.inventory-row-actions .inventory-status-toggle.deactivate { color: #b42318; }
+.inventory-row-actions .inventory-status-toggle.activate { color: #078038; }
+.inventory-row-actions .inventory-status-toggle:disabled { opacity: .5; cursor: not-allowed; }
+.inventory-row-actions .inventory-status-toggle.deactivate:hover { background: #fff0f0; color: #d92d20; }
+.inventory-row-actions .inventory-status-toggle.activate:hover:not(:disabled) { background: #eff8f1; color: #078038; }
 .inventory-empty { height: 80px; color: #778195 !important; text-align: center; }
 
 .inventory-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; color: #778195; font-size: 8px; }

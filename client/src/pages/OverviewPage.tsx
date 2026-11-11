@@ -9,7 +9,11 @@
   TrendingUp,
   Wallet,
 } from 'lucide-react'
-import type { Product } from '../data/products'
+import {
+  DEFAULT_MIN_STOCK,
+  getProductStockStatus,
+  type Product,
+} from '../data/products'
 import { formatRupiah } from '../data/products'
 import type { SaleTransaction } from '../data/sales'
 import './OverviewPage.css'
@@ -64,9 +68,7 @@ function OverviewPage({ products, categories, sales, onNavigate }: OverviewPageP
 
   const lowStockProducts = products
     .filter(
-      (product) =>
-        product.stock > 0 &&
-        product.stock <= (product.minStock ?? 5),
+      (product) => getProductStockStatus(product) === 'low',
     )
     .sort((a, b) => a.stock - b.stock)
     .slice(0, 5)
@@ -167,7 +169,7 @@ function OverviewPage({ products, categories, sales, onNavigate }: OverviewPageP
                   <span className="low-stock-icon"><Package size={13} /></span>
                   <div>
                     <strong>{product.name}</strong>
-                    <small>Batas minimum: {product.minStock ?? 5} {product.unit}</small>
+                    <small>Batas minimum: {product.minStock ?? DEFAULT_MIN_STOCK} {product.unit}</small>
                   </div>
                   <span className="low-stock-count">Sisa {product.stock} {product.unit}</span>
                 </article>

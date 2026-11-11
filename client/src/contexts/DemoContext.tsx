@@ -7,7 +7,11 @@ import {
   type ReactNode,
 } from 'react'
 import type { Product } from '../data/products'
-import { initialProducts, productCategories } from '../data/products'
+import {
+  initialProducts,
+  isProductActive,
+  productCategories,
+} from '../data/products'
 import type { StoreProfile } from '../data/demoStoreProfile'
 import { initialStoreProfile } from '../data/demoStoreProfile'
 import type { SaleTransaction } from '../data/sales'
@@ -62,7 +66,8 @@ function isProduct(value: unknown): value is Product {
     typeof value.cost === 'number' &&
     typeof value.price === 'number' &&
     typeof value.stock === 'number' &&
-    typeof value.unit === 'string'
+    typeof value.unit === 'string' &&
+    (!('isActive' in value) || typeof value.isActive === 'boolean')
   )
 }
 
@@ -236,15 +241,7 @@ export function DemoProvider({ children }: DemoProviderProps) {
       updateProducts: (products) => {
         const currentData = dataRef.current
         if (!currentData) return
-        const cart = Object.fromEntries(
-          Object.entries(currentData.cart).flatMap(([id, quantity]) => {
-            const product = products.find((item) => item.id === Number(id))
-            return product && product.stock > 0 && product.posEnabled !== false
-              ? [[Number(id), Math.min(quantity, product.stock)]]
-              : []
-          }),
-        )
-        const data = { ...currentData, products, cart }
+        const data = { ...currentData, products }
         try {
           commitData(data)
         } catch (error) {
@@ -334,6 +331,9 @@ export function DemoProvider({ children }: DemoProviderProps) {
           if (product.stock < quantity) {
             throw new Error(`Stok ${product.name} tidak mencukupi.`)
           }
+          if (!isProductActive(product) || product.posEnabled === false) {
+            throw new Error(`${product.name} tidak aktif untuk transaksi.`)
+          }
           return { product, quantity }
         })
 
@@ -396,6 +396,9 @@ export function DemoProvider({ children }: DemoProviderProps) {
           products: data.products.map((product) => ({
             ...product,
             stock: product.stock - (quantities.get(product.id) ?? 0),
+            isActive:
+              product.stock - (quantities.get(product.id) ?? 0) > 0 &&
+              product.isActive !== false,
           })),
           cart: {},
           sales: [transaction, ...data.sales],

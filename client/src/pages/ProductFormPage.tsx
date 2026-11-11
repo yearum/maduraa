@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import type { Product } from '../data/products'
-import { formatRupiah } from '../data/products'
+import { DEFAULT_MIN_STOCK, formatRupiah } from '../data/products'
 import './ProductFormPage.css'
 
 export type ProductFormValues = Omit<Product, 'id'>
@@ -58,7 +58,9 @@ function ProductFormPage({
   const [cost, setCost] = useState(String(product?.cost ?? ''))
   const [price, setPrice] = useState(String(product?.price ?? ''))
   const [stock, setStock] = useState(String(product?.stock ?? 0))
-  const [minStock, setMinStock] = useState(String(product?.minStock ?? 5))
+  const [minStock, setMinStock] = useState(
+    String(product?.minStock ?? DEFAULT_MIN_STOCK),
+  )
   const [location, setLocation] = useState(product?.location ?? '')
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '')
   const [posEnabled, setPosEnabled] = useState(product?.posEnabled ?? true)

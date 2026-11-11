@@ -264,9 +264,14 @@
   background: #dcffe8;
   color: #078038;
 }
+.category-active-badge.inactive {
+  background: #fff0f0;
+  color: #b42318;
+}
 
 .category-actions {
   display: flex;
+  align-items: center;
   gap: 3px;
 }
 
@@ -288,9 +293,30 @@
   color: #078038;
 }
 
-.category-actions button:last-child:hover {
+.category-actions .category-status-toggle {
+  width: auto;
+  min-width: 76px;
+  padding: 0 7px;
+  border: 1px solid #dfe4ec;
+  background: #fff;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.category-actions .category-status-toggle.activate {
+  color: #078038;
+}
+
+.category-actions .category-status-toggle.deactivate {
+  color: #b42318;
+}
+
+.category-actions .category-status-toggle.activate:hover {
+  background: #eff8f1;
+}
+
+.category-actions .category-status-toggle.deactivate:hover {
   background: #fff0f0;
-  color: #d92d20;
 }
 
 .category-empty {
