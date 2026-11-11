@@ -1,7 +1,6 @@
 import pool from '../config/db.js';
-import { successResponse, errorResponse, paginatedResponse } from '../utils/responseHelper.js';
+import { errorResponse, paginatedResponse, successResponse } from '../utils/responseHelper.js';
 
-// GET /api/v1/products — Daftar produk (dengan pagination & search)
 export const getProducts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -11,11 +10,11 @@ export const getProducts = async (req, res) => {
     const categoryId = req.query.category_id || null;
 
     let query = `
-            SELECT p.*, c.name AS category_name
-            FROM products p
-            LEFT JOIN categories c ON p.category_id = c.id
-            WHERE 1=1
-        `;
+      SELECT p.*, c.name AS category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE 1=1
+    `;
     const params = [];
     let paramIndex = 1;
 
@@ -31,7 +30,6 @@ export const getProducts = async (req, res) => {
       paramIndex++;
     }
 
-    // Count total
     const countQuery = query.replace(
       'SELECT p.*, c.name AS category_name',
       'SELECT COUNT(*) AS total',
@@ -39,10 +37,8 @@ export const getProducts = async (req, res) => {
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].total);
 
-    // Fetch data dengan pagination
     query += ` ORDER BY p.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
-
     const result = await pool.query(query, params);
 
     return paginatedResponse(
@@ -58,18 +54,15 @@ export const getProducts = async (req, res) => {
   }
 };
 
-// GET /api/v1/products/:id — Detail produk
 export const getProductById = async (req, res) => {
   try {
-    const { id } = req.params;
     const result = await pool.query(
       `SELECT p.*, c.name AS category_name
-             FROM products p
-             LEFT JOIN categories c ON p.category_id = c.id
-             WHERE p.id = $1`,
-      [id],
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       WHERE p.id = $1`,
+      [req.params.id],
     );
-
     if (result.rows.length === 0) {
       return errorResponse(res, 'Produk tidak ditemukan', 404);
     }
@@ -80,14 +73,14 @@ export const getProductById = async (req, res) => {
   }
 };
 
-// POST /api/v1/products — Tambah produk baru
 export const createProduct = async (req, res) => {
   try {
     const { category_id, name, purchase_price, selling_price, stock, unit, image_url } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO products (category_id, name, purchase_price, selling_price, stock, unit, image_url)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO products
+       (category_id, name, purchase_price, selling_price, stock, unit, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         category_id || null,
         name,
@@ -105,7 +98,6 @@ export const createProduct = async (req, res) => {
   }
 };
 
-// PUT /api/v1/products/:id — Update produk
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -119,9 +111,8 @@ export const updateProduct = async (req, res) => {
       image_url: req.body.image_url,
     };
 
-    // Cek apakah produk ada
-    const productCheck = await pool.query('SELECT id FROM products WHERE id = $1', [id]);
-    if (productCheck.rows.length === 0) {
+    const product = await pool.query('SELECT id FROM products WHERE id = $1', [id]);
+    if (product.rows.length === 0) {
       return errorResponse(res, 'Produk tidak ditemukan', 404);
     }
 
@@ -135,7 +126,7 @@ export const updateProduct = async (req, res) => {
     values.push(id);
     const result = await pool.query(
       `UPDATE products SET ${assignments.join(', ')}, updated_at = NOW()
-             WHERE id = $${values.length} RETURNING *`,
+       WHERE id = $${values.length} RETURNING *`,
       values,
     );
 
@@ -145,12 +136,11 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-// DELETE /api/v1/products/:id — Hapus produk
 export const deleteProduct = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [
+      req.params.id,
+    ]);
     if (result.rows.length === 0) {
       return errorResponse(res, 'Produk tidak ditemukan', 404);
     }

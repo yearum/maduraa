@@ -10,10 +10,9 @@ const pool = new Pool({
   },
 });
 
-// Tes koneksi saat startup
 pool
   .query('SELECT NOW()')
   .then(() => console.log('✅ Database terhubung'))
-  .catch((err) => console.error('❌ Gagal terhubung ke database:', err.message));
+  .catch((error) => console.error('❌ Gagal terhubung ke database:', error.message));
 
 export default pool;

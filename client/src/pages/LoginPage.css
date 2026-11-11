@@ -1,4 +1,3 @@
-
 .login-page {
   display: flex;
   justify-content: center;
@@ -166,6 +165,11 @@
 
 .login-submit:hover {
   background: #056329;
+}
+
+.login-submit:disabled {
+  cursor: wait;
+  opacity: 0.75;
 }
 
 .login-help {

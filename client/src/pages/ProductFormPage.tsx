@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
+﻿import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
 import {
   ArrowLeft,
   Barcode,
@@ -106,6 +106,23 @@ function ProductFormPage({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!name.trim()) {
+      setFormError('Nama produk wajib diisi.')
+      return
+    }
+    if (
+      !Number.isFinite(costValue) ||
+      costValue < 0 ||
+      !Number.isFinite(priceValue) ||
+      priceValue < 0
+    ) {
+      setFormError('Harga modal dan harga jual tidak boleh negatif.')
+      return
+    }
+    if (!Number.isFinite(Number(stock)) || Number(stock) < 0) {
+      setFormError('Stok tidak boleh negatif.')
+      return
+    }
     if (priceValue <= costValue) {
       setFormError('Harga jual harus lebih tinggi dari harga modal untuk mendapatkan keuntungan.')
       return
@@ -229,12 +246,9 @@ function ProductFormPage({
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        const generated = `899${Date.now().toString().slice(-10)}`
-                        setBarcode(generated)
-                        setSku(generated)
-                      }}
-                    ><ScanLine size={13} /> Scan</button>
+                      disabled
+                      title="Pemindaian barcode belum tersedia"
+                    ><ScanLine size={13} /> Scan belum tersedia</button>
                   </div>
                   <button className="product-inline-link sku-generate" type="button" onClick={generateSku}><Sparkles size={10} /> Buat Otomatis</button>
                 </label>
@@ -312,7 +326,7 @@ function ProductFormPage({
                   <span>Batas Peringatan Stok Menipis <b className="warning-star">⚠</b></span>
                   <div className="product-stock-input">
                     <input type="number" min="0" value={minStock} onChange={(event) => setMinStock(event.target.value)} />
-                    <button type="button">Batas Min.</button>
+                    <button type="button" onClick={() => setMinStock('5')}>Atur 5</button>
                   </div>
                   <small>Munculkan badge orange jika tersisa {minStock || 0} {unit}.</small>
                 </label>

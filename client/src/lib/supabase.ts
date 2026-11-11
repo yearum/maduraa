@@ -8,14 +8,27 @@ export function getSupabaseClient(): SupabaseClient {
     return supabaseClient
   }
 
-  const { supabaseUrl: url, supabaseAnonKey: anonKey } = frontendConfig
-
-  if (!url || !anonKey) {
+  const { supabaseUrl, supabaseKey } = frontendConfig
+  if (!supabaseUrl || !supabaseKey) {
     throw new Error(
-      'Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di .env.local.',
+      'Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan salah satu VITE_SUPABASE_PUBLISHABLE_KEY atau VITE_SUPABASE_ANON_KEY pada .env.local.',
     )
   }
 
-  supabaseClient = createClient(url, anonKey)
+  try {
+    supabaseClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true,
+      },
+    })
+  } catch (error) {
+    throw new Error(
+      'Konfigurasi Supabase tidak valid. Periksa kembali URL project dan public key.',
+      { cause: error },
+    )
+  }
+
   return supabaseClient
 }

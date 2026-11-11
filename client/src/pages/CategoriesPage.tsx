@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import {
   Archive,
   CirclePlus,
@@ -31,10 +31,6 @@ const iconPalette = [
   { className: 'purple', Icon: ShieldCheck },
 ]
 
-function normalizedName(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
 function CategoriesPage({
   categories,
   products,
@@ -49,20 +45,17 @@ function CategoriesPage({
 
   const categorySales = new Map<string, number>()
   for (const sale of sales) {
-    for (const item of sale.items) {
-      const itemName = normalizedName(item.replace(/\s*\(\d+x\)\s*$/i, ''))
-      const matchingProduct = products.find((product) => {
-        const productName = normalizedName(product.name)
-        return itemName.includes(productName) || productName.includes(itemName)
-      })
-      if (matchingProduct) {
-        const quantity = Number(item.match(/\((\d+)x\)\s*$/i)?.[1] ?? 1)
-        categorySales.set(
-          matchingProduct.category,
-          (categorySales.get(matchingProduct.category) ?? 0) +
-            matchingProduct.price * quantity,
-        )
-      }
+    for (const line of sale.productLines) {
+      const matchingProduct = products.find(
+        (product) => product.id === line.productId,
+      )
+      const category = line.productCategory ?? matchingProduct?.category
+      const unitPrice = line.unitPrice ?? matchingProduct?.price
+      if (!category || unitPrice === undefined) continue
+      categorySales.set(
+        category,
+        (categorySales.get(category) ?? 0) + unitPrice * line.quantity,
+      )
     }
   }
 
@@ -174,7 +167,7 @@ function CategoriesPage({
           <span>Kategori Terlaris Bulan Ini</span>
           <strong className="category-best-seller">{categoryWithMostSales}</strong>
           <small className="category-sales-note">
-            {formatRupiah(categorySales.get(categoryWithMostSales) ?? 0)} omzet demo
+            {formatRupiah(categorySales.get(categoryWithMostSales) ?? 0)} dari transaksi tersimpan
           </small>
           <Shapes className="category-stat-icon orange" size={22} />
         </article>

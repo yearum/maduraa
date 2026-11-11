@@ -19,6 +19,7 @@ type ProductsPageProps = {
   categories: string[]
   onProductsChange: (products: Product[]) => void
   onCategoriesChange: (categories: string[]) => void
+  initialFormOpen?: boolean
 }
 
 function ProductsPage({
@@ -26,13 +27,14 @@ function ProductsPage({
   categories,
   onProductsChange,
   onCategoriesChange,
+  initialFormOpen = false,
 }: ProductsPageProps) {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('Semua')
   const [stockFilter, setStockFilter] = useState('Semua Stok')
   const [page, setPage] = useState(1)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [formOpen, setFormOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(initialFormOpen)
   const pageSize = 8
 
   const filteredProducts = products.filter((product) => {
@@ -109,7 +111,7 @@ function ProductsPage({
   }
 
   function deleteProduct(product: Product) {
-    if (!window.confirm(`Hapus produk "${product.name}" dari daftar demo?`)) {
+    if (!window.confirm(`Hapus produk "${product.name}" dari data akun ini?`)) {
       return
     }
     onProductsChange(products.filter((item) => item.id !== product.id))
@@ -136,7 +138,7 @@ function ProductsPage({
     )
     const link = document.createElement('a')
     link.href = url
-    link.download = 'daftar-produk-demo.csv'
+    link.download = 'daftar-produk.csv'
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }

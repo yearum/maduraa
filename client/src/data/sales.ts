@@ -1,11 +1,22 @@
-export type SaleTransaction = {
+﻿export type SaleTransaction = {
   id: string
   date: string
   time: string
+  createdAt?: string
   items: string[]
-  productLines: { productId: number; quantity: number }[]
+  productLines: {
+    productId: number
+    quantity: number
+    productName?: string
+    productCategory?: string
+    unitPrice?: number
+    unitCost?: number
+    unit?: string
+  }[]
   total: number
   profit: number
+  discount?: number
+  cashReceived?: number
   payment: 'Tunai'
   status: 'Selesai'
   cashier: string
@@ -34,7 +45,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 6500,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateStamp}-0041`,
@@ -46,7 +57,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 15000,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateStamp}-0040`,
@@ -58,7 +69,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 7500,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateStamp}-0039`,
@@ -70,7 +81,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 3000,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateDaysAgo(1).replaceAll('-', '')}-0038`,
@@ -82,7 +93,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 7000,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateDaysAgo(3).replaceAll('-', '')}-0037`,
@@ -94,7 +105,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 11000,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateDaysAgo(8).replaceAll('-', '')}-0036`,
@@ -106,7 +117,7 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 11000,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
   {
     id: `TRX-${dateDaysAgo(20).replaceAll('-', '')}-0035`,
@@ -118,6 +129,6 @@ export const initialDemoSales: SaleTransaction[] = [
     profit: 9000,
     payment: 'Tunai',
     status: 'Selesai',
-    cashier: 'Cak Mahmud',
+    cashier: 'Data contoh',
   },
 ]

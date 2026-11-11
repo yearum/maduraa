@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   CalendarDays,
   CheckCircle2,
@@ -8,16 +8,18 @@ import {
   Search,
   TrendingUp,
   Wallet,
-  X,
 } from 'lucide-react'
 import { formatRupiah } from '../data/products'
+import type { StoreProfile } from '../data/demoStoreProfile'
 import type { SaleTransaction } from '../data/sales'
+import ReceiptDialog from '../components/ReceiptDialog'
 import './ReportsPage.css'
 
 type Period = 'Harian' | 'Mingguan' | 'Bulanan'
 
 type ReportsPageProps = {
   sales: SaleTransaction[]
+  storeProfile: StoreProfile
 }
 
 function localDateString(date: Date) {
@@ -36,7 +38,7 @@ function formatDate(date: string) {
   }).format(new Date(`${date}T12:00:00`))
 }
 
-function ReportsPage({ sales }: ReportsPageProps) {
+function ReportsPage({ sales, storeProfile }: ReportsPageProps) {
   const [period, setPeriod] = useState<Period>('Harian')
   const [search, setSearch] = useState('')
   const [selectedSale, setSelectedSale] = useState<SaleTransaction | null>(null)
@@ -97,6 +99,10 @@ function ReportsPage({ sales }: ReportsPageProps) {
         </div>
         <span className="reports-date"><CalendarDays size={13} /> {formatDate(today)}</span>
       </section>
+      <p className="reports-data-note">
+        Laporan dihitung dari transaksi yang tersimpan di browser ini. Data contoh awal dapat
+        disesuaikan atau dihapus; transaksi lokal belum tersinkron ke server.
+      </p>
 
       <section className="reports-summary">
         <article className="revenue">
@@ -173,32 +179,11 @@ function ReportsPage({ sales }: ReportsPageProps) {
       </section>
 
       {selectedSale && (
-        <div className="receipt-modal-backdrop" role="presentation" onClick={() => setSelectedSale(null)}>
-          <section
-            className="receipt-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="receipt-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header>
-              <h3 id="receipt-title">Detail Struk</h3>
-              <button aria-label="Tutup" onClick={() => setSelectedSale(null)}><X size={17} /></button>
-            </header>
-            <div className="receipt-modal-content">
-              <strong>TOKO BERKAH MADURA</strong>
-              <span>#{selectedSale.id}</span>
-              <span>{formatDate(selectedSale.date)} · {selectedSale.time}</span>
-              <hr />
-              {selectedSale.items.map((item) => <span key={item}>{item}</span>)}
-              <hr />
-              <strong>Total: {formatRupiah(selectedSale.total)}</strong>
-              <span>Pembayaran: {selectedSale.payment}</span>
-              <span>Kasir: {selectedSale.cashier}</span>
-            </div>
-            <button className="reports-print" onClick={printReport}><Printer size={14} /> Cetak Struk</button>
-          </section>
-        </div>
+        <ReceiptDialog
+          sale={selectedSale}
+          storeProfile={storeProfile}
+          onClose={() => setSelectedSale(null)}
+        />
       )}
     </main>
   )

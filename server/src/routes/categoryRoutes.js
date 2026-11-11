@@ -1,12 +1,12 @@
 import express from 'express';
 import {
-  getCategories,
   createCategory,
-  updateCategory,
   deleteCategory,
+  getCategories,
+  updateCategory,
 } from '../controllers/categoryController.js';
 import verifyToken from '../middlewares/verifyToken.js';
-import { validateRequired, validateIdParam } from '../middlewares/validateRequest.js';
+import { validateIdParam, validateRequired } from '../middlewares/validateRequest.js';
 
 const router = express.Router();
 

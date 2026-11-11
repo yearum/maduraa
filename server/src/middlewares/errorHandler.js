@@ -1,20 +1,16 @@
-/**
- * Global error handler middleware
- * Tangkap semua error yang tidak ter-handle di controller
- */
-const errorHandler = (err, _req, res, _next) => {
-  console.error('❌ Unhandled Error:', err.stack || err.message);
+import { env } from '../config/env.js';
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Terjadi kesalahan pada server';
+const errorHandler = (error, _req, res, _next) => {
+  console.error('❌ Unhandled Error:', error.stack || error.message);
 
-  res.status(statusCode).json({
+  const statusCode = error.statusCode || 500;
+  const message = error.message || 'Terjadi kesalahan pada server';
+
+  return res.status(statusCode).json({
     status: 'error',
     message,
-    ...(env.nodeEnv === 'development' && { stack: err.stack }),
+    ...(env.nodeEnv === 'development' && { stack: error.stack }),
   });
 };
 
 export default errorHandler;
-import { env } from '../config/env.js';
-

@@ -1,4 +1,4 @@
-export type StoreProfile = {
+﻿export type StoreProfile = {
   ownerName: string
   email: string
   phone: string
@@ -22,6 +22,10 @@ export const initialStoreProfile: StoreProfile = {
 
 const profileStorageKey = 'maduraa-demo-store-profile'
 
+function getProfileStorageKey(identity: string) {
+  return `${profileStorageKey}.${encodeURIComponent(identity)}`
+}
+
 function isStoreProfile(value: unknown): value is StoreProfile {
   if (typeof value !== 'object' || value === null) return false
 
@@ -38,17 +42,22 @@ function isStoreProfile(value: unknown): value is StoreProfile {
   )
 }
 
-export function loadDemoStoreProfile(): StoreProfile {
-  const storedProfile = localStorage.getItem(profileStorageKey)
+export function loadDemoStoreProfile(identity = 'shared'): StoreProfile {
+  const storedProfile =
+    localStorage.getItem(getProfileStorageKey(identity)) ??
+    (identity === 'shared' ? null : localStorage.getItem(profileStorageKey))
   if (storedProfile === null) return initialStoreProfile
 
   const profile: unknown = JSON.parse(storedProfile)
   if (!isStoreProfile(profile)) {
-    throw new Error('Data profil demo warung tidak valid. Hapus data demo browser lalu daftar kembali.')
+    throw new Error('Data profil warung tidak valid. Periksa data tersimpan di browser.')
   }
   return profile
 }
 
-export function saveDemoStoreProfile(profile: StoreProfile) {
-  localStorage.setItem(profileStorageKey, JSON.stringify(profile))
+export function saveDemoStoreProfile(
+  profile: StoreProfile,
+  identity = 'shared',
+) {
+  localStorage.setItem(getProfileStorageKey(identity), JSON.stringify(profile))
 }

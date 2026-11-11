@@ -6,8 +6,8 @@ Backend Maduraa berbasis Node.js dan Express.
 
 - `src/app.js` — konfigurasi Express, middleware, dan route.
 - `src/server.js` — memuat environment dan menjalankan HTTP server.
-- `src/controllers/` — logika penanganan request.
 - `src/routes/` — definisi endpoint API.
+- `src/controllers/` — logika penanganan request.
 - `src/middlewares/` — middleware Express.
 - `.env.example` — contoh variabel lingkungan backend.
 
