@@ -6,7 +6,7 @@
 - `server/` — API backend Node.js dan Express.
 - `docs/` — dokumentasi arsitektur, API, dan database.
 
-Konfigurasi npm dan Vite berada di root repository. Jalankan `npm run dev` atau `npm run build` dari root untuk frontend. Jalankan backend dengan `cd server` lalu `npm run dev` (atau `npm start`). File environment frontend berada di root; gunakan `client/.env.example` sebagai acuan. File environment backend berada di `server/`; gunakan `server/.env.example` sebagai acuan.
+Konfigurasi npm dan Vite berada di root repository. Jalankan `npm run dev` atau `npm run build` dari root untuk frontend. Jalankan backend dengan `cd server` lalu `npm run dev` (atau `npm start`). Simpan konfigurasi frontend di `.env.local` root dengan acuan `client/.env.example`; konfigurasi backend berada di `server/.env` dengan acuan `server/.env.example`. Jangan masukkan rahasia backend ke konfigurasi frontend.
 
 ## Autentikasi dan Mode Prototype
 
@@ -18,7 +18,7 @@ Untuk konfigurasi Supabase Auth, atur `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_
 
 Supabase data adapter belum dihubungkan karena schema data dan kebijakan RLS aplikasi belum diverifikasi. Adapter prototype dan interface data dipisahkan agar integrasi schema terverifikasi dapat dilakukan tanpa merombak form autentikasi dan komponen fitur.
 
-Backend Express masih memiliki endpoint autentikasi JWT lama dan route API yang memvalidasi token tersebut. Frontend saat ini tidak memanggil endpoint itu; jangan mencampur token backend dengan session Supabase. Jika route API tersebut akan dipakai oleh frontend, verifikasi token Supabase dan pemetaan user perlu ditangani sebagai perubahan backend terpisah sebelum integrasi data.
+Backend Express masih memiliki endpoint autentikasi JWT dan route API yang memvalidasi token tersebut. Frontend saat ini tidak memanggil endpoint itu; jangan mencampur token backend dengan session Supabase. Jika route API tersebut akan dipakai oleh frontend, verifikasi token Supabase dan pemetaan user perlu ditangani sebagai perubahan backend terpisah sebelum integrasi data.
 
 Dev tim:
 
