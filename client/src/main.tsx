@@ -3,49 +3,51 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './index.css'
 import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
+import HomeRedirect from './pages/HomeRedirect'
 import DashboardRoute from './pages/DashboardRoute'
 import DashboardPage from './pages/DashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import ProtectedRoute from './pages/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
 import { DemoProvider } from './contexts/DemoContext'
+import { PreviewProvider } from './contexts/PreviewContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <DemoProvider>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/dashboard/overview" element={<DashboardPage initialSection="Dashboard" />} />
-              <Route path="/dashboard/products" element={<DashboardPage initialSection="Produk" />} />
-              <Route
-                path="/dashboard/product-form"
-                element={<DashboardPage initialSection="Produk" initialProductFormOpen />}
-              />
-              <Route path="/dashboard/categories" element={<DashboardPage initialSection="Kategori" />} />
-              <Route path="/dashboard/reports" element={<DashboardPage initialSection="Laporan Omzet" />} />
-              <Route path="/dashboard/profile" element={<DashboardPage initialSection="Profil Warung" />} />
-              <Route path="/dashboard/omzet" element={<DashboardRoute />} />
-              <Route path="/overview" element={<DashboardPage initialSection="Dashboard" />} />
-              <Route path="/products" element={<DashboardPage initialSection="Produk" />} />
-              <Route
-                path="/product-form"
-                element={<DashboardPage initialSection="Produk" initialProductFormOpen />}
-              />
-              <Route path="/categories" element={<DashboardPage initialSection="Kategori" />} />
-              <Route path="/reports" element={<DashboardPage initialSection="Laporan Omzet" />} />
-              <Route path="/profile" element={<ProfilePage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </AuthProvider>
-      </DemoProvider>
+      <PreviewProvider>
+        <DemoProvider>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<HomeRedirect />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard/overview" element={<DashboardPage initialSection="Dashboard" />} />
+                <Route path="/dashboard/products" element={<DashboardPage initialSection="Produk" />} />
+                <Route
+                  path="/dashboard/product-form"
+                  element={<DashboardPage initialSection="Produk" initialProductFormOpen />}
+                />
+                <Route path="/dashboard/categories" element={<DashboardPage initialSection="Kategori" />} />
+                <Route path="/dashboard/reports" element={<DashboardPage initialSection="Laporan Omzet" />} />
+                <Route path="/dashboard/profile" element={<DashboardPage initialSection="Profil Warung" />} />
+                <Route path="/dashboard/omzet" element={<DashboardRoute />} />
+                <Route path="/overview" element={<DashboardPage initialSection="Dashboard" />} />
+                <Route path="/products" element={<DashboardPage initialSection="Produk" />} />
+                <Route
+                  path="/product-form"
+                  element={<DashboardPage initialSection="Produk" initialProductFormOpen />}
+                />
+                <Route path="/categories" element={<DashboardPage initialSection="Kategori" />} />
+                <Route path="/reports" element={<DashboardPage initialSection="Laporan Omzet" />} />
+                <Route path="/profile" element={<ProfilePage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </AuthProvider>
+        </DemoProvider>
+      </PreviewProvider>
     </BrowserRouter>
   </StrictMode>,
 )

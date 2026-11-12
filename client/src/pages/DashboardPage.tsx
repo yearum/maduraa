@@ -26,6 +26,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthProfile } from '../hooks/useAuthProfile'
 import { useDemoStore } from '../contexts/useDemoStore'
 import { useAuth } from '../contexts/useAuth'
+import { usePreview } from '../contexts/usePreview'
 import {
   initialStoreProfile,
   loadDemoStoreProfile,
@@ -47,6 +48,7 @@ import OverviewPage from './OverviewPage'
 import ReceiptDialog from '../components/ReceiptDialog'
 import {
   formatRupiah,
+  isProductActive,
   initialProducts,
   productCategories,
   type Product,
@@ -238,6 +240,8 @@ function DashboardPage({
   const { mode, signOut, updateProfileName } = useAuth()
   const demo = useDemoStore()
   const demoMode = mode === 'prototype'
+  const preview = usePreview()
+  const isCashierPreview = preview.role === 'cashier'
   const authProfile = useAuthProfile()
   const accountIdentity = demoMode
     ? `prototype:${authProfile?.identity ?? ''}`
@@ -249,7 +253,9 @@ function DashboardPage({
   const activeMenu =
     menuOverride?.pathname === location.pathname
       ? menuOverride.menu
-      : initialSection
+      : preview.role === 'owner' && initialSection === 'Transaksi Kasir'
+        ? 'Dashboard'
+        : initialSection
   const [localProductList, setLocalProductList] = useState(() =>
     demoMode && demo.data
       ? demo.data.products
@@ -273,6 +279,7 @@ function DashboardPage({
   const categories = demoMode
     ? demo.data?.categories ?? localCategories
     : localCategories
+  const [inactiveCategories, setInactiveCategories] = useState<string[]>([])
   const [localSales, setLocalSales] = useState(() =>
     demoMode && demo.data
       ? demo.data.sales
@@ -312,7 +319,7 @@ function DashboardPage({
   const [search, setSearch] = useState('')
   const [localCart, setLocalCart] = useState<Record<number, number>>({})
   const cart = demoMode ? demo.data?.cart ?? localCart : localCart
-  const [cash, setCash] = useState('200000')
+  const [cash, setCash] = useState('0')
   const [discount, setDiscount] = useState(0)
   const [notice, setNotice] = useState('')
   const [selectedReceipt, setSelectedReceipt] =
@@ -380,6 +387,13 @@ function DashboardPage({
     if (isLoggingOut) return
     setIsLoggingOut(true)
 
+    if (preview.role) {
+      preview.endPreview()
+      setIsLoggingOut(false)
+      navigate('/login', { replace: true })
+      return
+    }
+
     try {
       await signOut()
       if (mode === 'prototype') demo.logout()
@@ -436,11 +450,12 @@ function DashboardPage({
   const filteredProducts = productList.filter((product) => {
     const matchCategory =
       category === 'Semua' || product.category === category
-    const matchSearch = product.name
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    const matchSearch = product.name.toLowerCase().includes(search.trim().toLowerCase())
 
-    return product.posEnabled !== false && matchCategory && matchSearch
+    return (
+      matchCategory &&
+      matchSearch
+    )
   })
 
   const cartItems = productList.filter((product) => (cart[product.id] ?? 0) > 0)
@@ -450,7 +465,9 @@ function DashboardPage({
       productList.reduce(
         (total, product) =>
           total +
-          (product.posEnabled !== false ? product.price * (cart[product.id] ?? 0) : 0),
+          (isProductActive(product) && product.posEnabled !== false
+            ? product.price * Math.min(cart[product.id] ?? 0, product.stock)
+            : 0),
         0,
       ),
     [cart, productList],
@@ -458,14 +475,21 @@ function DashboardPage({
 
   const total = Math.max(0, subtotal - discount)
   const cashAmount = Number(cash) || 0
-  const change = Math.max(0, cashAmount - total)
+  const change =
+    cartItems.length > 0 ? Math.max(0, cashAmount - total) : 0
 
   function addProduct(product: Product) {
+    if (!isProductActive(product) || product.posEnabled === false) {
+      setNotice('Produk ini tidak aktif untuk transaksi.')
+      return
+    }
+
     if ((cart[product.id] ?? 0) >= product.stock) {
       setNotice('Stok produk tidak mencukupi.')
       return
     }
 
+    if (cartItems.length === 0) setCash('200000')
     setCart((current) => ({
       ...current,
       [product.id]: (current[product.id] ?? 0) + 1,
@@ -474,9 +498,22 @@ function DashboardPage({
   }
 
   function updateQuantity(id: number, amount: number) {
+    const product = productList.find((item) => item.id === id)
+    if (
+      amount > 0 &&
+      product &&
+      (!isProductActive(product) || product.posEnabled === false)
+    ) {
+      setNotice(`${product.name} tidak aktif untuk transaksi.`)
+      return
+    }
+
+    const nextQuantity = (cart[id] ?? 0) + amount
+    if (nextQuantity <= 0 && cartItems.length === 1) setCash('0')
+
     setCart((current) => {
       const next = { ...current }
-      const quantity = (next[id] ?? 0) + amount
+      const quantity = nextQuantity
 
       if (quantity <= 0) {
         delete next[id]
@@ -492,7 +529,41 @@ function DashboardPage({
     setNotice('')
   }
 
+  function clearCart() {
+    setCart({})
+    setCash('0')
+    setDiscount(0)
+    setNotice('')
+  }
+
+  function getCartValidationError(): string | null {
+    const entries = Object.entries(cart).filter(([, quantity]) => quantity > 0)
+    if (entries.length === 0) {
+      return 'Tambahkan produk ke keranjang terlebih dahulu.'
+    }
+
+    for (const [id, quantity] of entries) {
+      const product = productList.find((item) => item.id === Number(id))
+      if (!product) {
+        return 'Produk di keranjang tidak ditemukan. Periksa kembali keranjang.'
+      }
+      if (product.stock === 0 || product.stock < quantity) {
+        return `Stok ${product.name} tidak mencukupi. Perbarui jumlah di keranjang.`
+      }
+      if (!isProductActive(product) || product.posEnabled === false) {
+        return `${product.name} berstatus Nonaktif dan tidak dapat ditransaksikan.`
+      }
+    }
+    return null
+  }
+
   function saveTransaction() {
+    const cartValidationError = getCartValidationError()
+    if (cartValidationError) {
+      setNotice(cartValidationError)
+      return
+    }
+
     if (cartItems.length === 0) {
       setNotice('Tambahkan produk ke keranjang terlebih dahulu.')
       return
@@ -509,7 +580,7 @@ function DashboardPage({
         setSelectedReceipt(transaction)
         setDataError('')
         setNotice('Transaksi berhasil dicatat.')
-        setCash('200000')
+        setCash('0')
         setDiscount(0)
       } catch (error) {
         setDataError(
@@ -559,10 +630,14 @@ function DashboardPage({
       cashier: ownerName,
     }
     const nextSales = [transaction, ...sales]
-    const nextProducts = productList.map((product) => ({
+    const nextProducts = productList.map((product) => {
+      const stock = Math.max(0, product.stock - (cart[product.id] ?? 0))
+      return {
         ...product,
-        stock: Math.max(0, product.stock - (cart[product.id] ?? 0)),
-      }))
+        stock,
+        isActive: stock > 0 && product.isActive !== false,
+      }
+    })
     try {
       if (!demoMode) {
         saveSales(accountIdentity, nextSales)
@@ -582,11 +657,19 @@ function DashboardPage({
     setDataError('')
     setNotice('Transaksi berhasil dicatat.')
     setCart({})
-    setCash('200000')
+    setCash('0')
     setDiscount(0)
   }
 
   function handleMenu(menu: string) {
+    if (
+      isCashierPreview &&
+      menu !== 'Dashboard' &&
+      menu !== 'Transaksi Kasir'
+    ) {
+      setNotice('Menu ini tidak tersedia pada Preview Kasir.')
+      return
+    }
     setMenuOverride({ pathname: location.pathname, menu })
 
     if (
@@ -632,6 +715,22 @@ function DashboardPage({
     }
   }
 
+  function toggleCategoryStatus(categoryName: string) {
+    setInactiveCategories((current) =>
+      current.includes(categoryName)
+        ? current.filter((category) => category !== categoryName)
+        : [...current, categoryName],
+    )
+  }
+
+  function renameCategoryStatus(previousName: string, nextName: string) {
+    setInactiveCategories((current) =>
+      current.includes(previousName)
+        ? [...current.filter((category) => category !== previousName), nextName]
+        : current,
+    )
+  }
+
   async function saveStoreProfile(updatedOwnerName: string) {
     try {
       const updatedProfile = { ...storeProfile, ownerName: updatedOwnerName.trim() }
@@ -668,18 +767,6 @@ function DashboardPage({
       )
       return
     }
-    if (!demoMode) {
-      setCart((current) =>
-        Object.fromEntries(
-          Object.entries(current).flatMap(([id, quantity]) => {
-            const product = nextProducts.find((item) => item.id === Number(id))
-            return product && product.stock > 0 && product.posEnabled !== false
-              ? [[Number(id), Math.min(quantity, product.stock)]]
-              : []
-          }),
-        ),
-      )
-    }
   }
 
   const cashierCategories = [
@@ -710,10 +797,14 @@ function DashboardPage({
           {[
             { label: 'Dashboard', icon: LayoutDashboard },
             { label: 'Transaksi Kasir', icon: ShoppingBasket },
-            { label: 'Produk', icon: Package },
-            { label: 'Kategori', icon: Shapes },
-            { label: 'Laporan Omzet', icon: ChartNoAxesCombined },
-            { label: 'Profil Warung', icon: Store },
+            ...(!isCashierPreview
+              ? [
+                  { label: 'Produk', icon: Package },
+                  { label: 'Kategori', icon: Shapes },
+                  { label: 'Laporan Omzet', icon: ChartNoAxesCombined },
+                  { label: 'Profil Warung', icon: Store },
+                ]
+              : []),
           ].map(({ label, icon: Icon }) => (
             <button
               key={label}
@@ -733,7 +824,11 @@ function DashboardPage({
           aria-busy={isLoggingOut}
         >
           <LogOut size={16} />
-          {isLoggingOut ? 'Sedang keluar...' : 'Keluar'}
+          {isLoggingOut
+            ? 'Sedang keluar...'
+            : preview.role
+              ? 'Keluar dari Preview'
+              : 'Keluar'}
         </button>
       </aside>
 
@@ -754,6 +849,13 @@ function DashboardPage({
             <span className="user-avatar" title={ownerName}>{ownerInitials || 'PW'}</span>
           </div>
         </header>
+
+        {preview.role && (
+          <div className="preview-mode-banner" role="status">
+            <strong>MODE PREVIEW - DATA SEMENTARA</strong>
+            <span>Role: {preview.role === 'owner' ? 'Pemilik' : 'Kasir'}</span>
+          </div>
+        )}
 
         {(dataError || (demoMode && demo.error)) && (
           <p className="cashier-notice" role="alert">{dataError || demo.error}</p>
@@ -791,8 +893,11 @@ function DashboardPage({
             categories={categories}
             products={productList}
             sales={sales}
+            inactiveCategories={inactiveCategories}
             onCategoriesChange={updateCategories}
             onProductsChange={updateProducts}
+            onToggleCategory={toggleCategoryStatus}
+            onRenameCategory={renameCategoryStatus}
           />
         ) : activeMenu === 'Laporan Omzet' ? (
           <ReportsPage sales={sales} storeProfile={storeProfile} />
@@ -844,40 +949,54 @@ function DashboardPage({
 
             {activeMenu === 'Transaksi Kasir' && (
               <div className="product-grid">
-                {filteredProducts.map((product) => (
-                  <article
-                    className={`product-card ${
-                      product.stock === 0 ? 'out-of-stock' : ''
-                    }`}
-                    key={product.id}
-                  >
-                    <div className="product-meta">
-                      <span>{product.category}</span>
-                      <span className={product.stock === 0 ? 'stock-empty' : 'stock-badge'}>
-                        {product.stock === 0
-                          ? 'Stok Habis'
-                          : `Stok: ${product.stock} ${product.unit}`}
-                      </span>
-                    </div>
+                {filteredProducts.map((product) => {
+                  const available =
+                    isProductActive(product) && product.posEnabled !== false
+                  const stockAvailable = product.stock > 0
 
-                    <h3>{product.name}</h3>
-                    <strong className="product-price">
-                      {formatRupiah(product.price)}
-                    </strong>
-
-                    <button
-                      className="add-product"
-                      disabled={
-                        product.stock === 0 ||
-                        (cart[product.id] ?? 0) >= product.stock
-                      }
-                      onClick={() => addProduct(product)}
+                  return (
+                    <article
+                      className={`product-card ${
+                        !stockAvailable ? 'out-of-stock' : ''
+                      }`}
+                      key={product.id}
                     >
-                      <Plus size={15} />
-                      Tambah
-                    </button>
-                  </article>
-                ))}
+                      <div className="product-meta">
+                        <span>{product.category}</span>
+                        <span className="product-stock-status">
+                          <span className={stockAvailable ? 'stock-badge' : 'stock-empty'}>
+                            {stockAvailable
+                              ? `Stok: ${product.stock} ${product.unit}`
+                              : 'Stok Habis'}
+                          </span>
+                          {!available && (
+                            <span className="stock-empty">Nonaktif</span>
+                          )}
+                        </span>
+                      </div>
+
+                      <h3>{product.name}</h3>
+                      <strong className="product-price">
+                        {formatRupiah(product.price)}
+                      </strong>
+
+                      <button
+                        className="add-product"
+                        disabled={
+                          !available ||
+                          !stockAvailable ||
+                          (cart[product.id] ?? 0) >= product.stock
+                        }
+                        onClick={() => addProduct(product)}
+                      >
+                        {available && stockAvailable ? <Plus size={15} /> : null}
+                        {available && stockAvailable
+                          ? 'Tambah'
+                          : 'Produk Tidak Tersedia'}
+                      </button>
+                    </article>
+                  )
+                })}
 
                 {filteredProducts.length === 0 && (
                   <p>Produk tidak ditemukan.</p>
@@ -889,7 +1008,7 @@ function DashboardPage({
           <aside className="cart-panel">
             <div className="cart-heading">
               <h2><ShoppingCart size={19} /> Keranjang Belanja</h2>
-              <button onClick={() => setCart({})}>Kosongkan</button>
+              <button onClick={clearCart}>Kosongkan</button>
             </div>
 
             <div className="cart-subheading">
@@ -914,12 +1033,22 @@ function DashboardPage({
 
               {cartItems.map((product) => {
                 const quantity = cart[product.id] ?? 0
+                const active =
+                  isProductActive(product) && product.posEnabled !== false
+                const stockSufficient = product.stock >= quantity
 
                 return (
                   <div className="cart-item" key={product.id}>
                     <div className="cart-item-info">
                       <strong>{product.name}</strong>
                       <span>{formatRupiah(product.price)} / {product.unit}</span>
+                      {(!active || !stockSufficient) && (
+                        <span className="cart-item-warning">
+                          {!active
+                            ? 'Nonaktif - tidak dapat ditransaksikan'
+                            : 'Stok tidak mencukupi'}
+                        </span>
+                      )}
                     </div>
 
                     <div className="quantity-control">
@@ -932,7 +1061,11 @@ function DashboardPage({
                       <span>{quantity}</span>
                       <button
                         aria-label={`Tambah ${product.name}`}
-                        disabled={quantity >= product.stock}
+                        disabled={
+                          !active ||
+                          !stockSufficient ||
+                          quantity >= product.stock
+                        }
                         onClick={() => updateQuantity(product.id, 1)}
                       >
                         <Plus size={13} />
@@ -940,7 +1073,9 @@ function DashboardPage({
                     </div>
 
                     <strong className="line-total">
-                      {formatRupiah(product.price * quantity)}
+                      {active && stockSufficient
+                        ? formatRupiah(product.price * quantity)
+                        : 'Tidak tersedia'}
                     </strong>
                   </div>
                 )
@@ -981,7 +1116,8 @@ function DashboardPage({
                   id="cash"
                   type="number"
                   min="0"
-                  value={cash}
+                  value={cartItems.length > 0 ? cash : '0'}
+                  disabled={cartItems.length === 0}
                   onChange={(event) => setCash(event.target.value)}
                 />
               </div>
@@ -995,7 +1131,11 @@ function DashboardPage({
               <strong>{formatRupiah(change)}</strong>
             </section>
 
-            <button className="save-transaction" onClick={saveTransaction}>
+            <button
+              className="save-transaction"
+              onClick={saveTransaction}
+              disabled={cartItems.length === 0}
+            >
               <CheckCircle size={18} />
               Simpan Transaksi (Selesai)
             </button>

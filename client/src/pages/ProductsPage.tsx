@@ -7,10 +7,14 @@ import {
   PackageCheck,
   Pencil,
   Search,
-  Trash2,
   TrendingUp,
 } from 'lucide-react'
-import { formatRupiah, type Product } from '../data/products'
+import {
+  formatRupiah,
+  getProductStockStatus,
+  isProductActive,
+  type Product,
+} from '../data/products'
 import ProductFormPage, { type ProductFormValues } from './ProductFormPage'
 import './ProductsPage.css'
 
@@ -47,9 +51,12 @@ function ProductsPage({
       categoryFilter === 'Semua' || product.category === categoryFilter
     const matchesStock =
       stockFilter === 'Semua Stok' ||
-      (stockFilter === 'Stok Menipis' && product.stock > 0 && product.stock <= (product.minStock ?? 5)) ||
-      (stockFilter === 'Stok Habis' && product.stock === 0) ||
-      (stockFilter === 'Stok Aman' && product.stock > (product.minStock ?? 5))
+      (stockFilter === 'Stok Menipis' &&
+        getProductStockStatus(product) === 'low') ||
+      (stockFilter === 'Nonaktif' &&
+        getProductStockStatus(product) === 'inactive') ||
+      (stockFilter === 'Stok Aman' &&
+        getProductStockStatus(product) === 'safe')
 
     return matchesSearch && matchesCategory && matchesStock
   })
@@ -60,7 +67,7 @@ function ProductsPage({
     currentPage * pageSize,
   )
   const lowStockCount = products.filter(
-    (product) => product.stock > 0 && product.stock <= (product.minStock ?? 5),
+    (product) => getProductStockStatus(product) === 'low',
   ).length
   const stockCapital = products.reduce(
     (total, product) => total + product.cost * product.stock,
@@ -93,8 +100,13 @@ function ProductsPage({
     const nextProducts = editingProduct
       ? products.map((product) =>
           product.id === editingProduct.id
-            ? { ...product, ...form, sku: form.sku || product.sku }
-            : product,
+        ? {
+            ...product,
+            ...form,
+            sku: form.sku || product.sku,
+            isActive: form.stock > 0 && isProductActive(product),
+          }
+        : product,
         )
       : [
           ...products,
@@ -102,6 +114,7 @@ function ProductsPage({
             ...form,
             id: Math.max(0, ...products.map((product) => product.id)) + 1,
             sku: form.sku || `DM-${Date.now().toString().slice(-6)}`,
+            isActive: form.stock > 0,
           },
         ]
 
@@ -110,11 +123,14 @@ function ProductsPage({
     setEditingProduct(null)
   }
 
-  function deleteProduct(product: Product) {
-    if (!window.confirm(`Hapus produk "${product.name}" dari data akun ini?`)) {
-      return
-    }
-    onProductsChange(products.filter((item) => item.id !== product.id))
+  function toggleProductStatus(product: Product) {
+    onProductsChange(
+      products.map((item) =>
+        item.id === product.id
+          ? { ...item, isActive: !isProductActive(item) }
+          : item,
+      ),
+    )
   }
 
   function exportProducts() {
@@ -236,7 +252,7 @@ function ProductsPage({
           <option>Semua Stok</option>
           <option>Stok Aman</option>
           <option>Stok Menipis</option>
-          <option>Stok Habis</option>
+          <option>Nonaktif</option>
         </select>
         <span className="inventory-result-count">
           Menampilkan {filteredProducts.length} dari {products.length} produk
@@ -276,22 +292,39 @@ function ProductsPage({
                 <td><strong>{formatRupiah(product.price)}</strong></td>
                 <td><strong>{product.stock}</strong> {product.unit}</td>
                 <td>
-                  {product.stock === 0
-                    ? <span className="inventory-status empty">Habis</span>
-                    : product.stock <= (product.minStock ?? 5)
-                      ? <span className="inventory-status low"><AlertTriangle size={11} /> Menipis (Sisa {product.stock})</span>
-                      : <span className="inventory-status safe">● Aman</span>}
+                  {getProductStockStatus(product) === 'inactive'
+                    ? <span className="inventory-status empty">Nonaktif</span>
+                    : getProductStockStatus(product) === 'low'
+                      ? <span className="inventory-status low"><AlertTriangle size={11} /> Stok Menipis</span>
+                      : <span className="inventory-status safe">Stok Aman</span>}
                 </td>
                 <td>
                   <div className="inventory-row-actions">
                     <button aria-label={`Edit ${product.name}`} title="Edit" onClick={() => openEditForm(product)}><Pencil size={13} /></button>
-                    <button aria-label={`Hapus ${product.name}`} title="Hapus" onClick={() => deleteProduct(product)}><Trash2 size={13} /></button>
+                    <button
+                      className={`inventory-status-toggle ${isProductActive(product) ? 'deactivate' : 'activate'}`}
+                      type="button"
+                      aria-label={
+                        !isProductActive(product) && product.stock === 0
+                          ? `Aktifkan ${product.name}; stok harus diisi terlebih dahulu`
+                          : `${isProductActive(product) ? 'Nonaktifkan' : 'Aktifkan'} ${product.name}`
+                      }
+                      disabled={!isProductActive(product) && product.stock === 0}
+                      title={
+                        !isProductActive(product) && product.stock === 0
+                          ? 'Stok harus diisi terlebih dahulu.'
+                          : undefined
+                      }
+                      onClick={() => toggleProductStatus(product)}
+                    >
+                      {isProductActive(product) ? 'Nonaktifkan' : 'Aktifkan'}
+                    </button>
                   </div>
                 </td>
               </tr>
             ))}
             {visibleProducts.length === 0 && (
-              <tr><td className="inventory-empty" colSpan={8}>Tidak ada produk yang cocok dengan pencarian atau filter.</td></tr>
+              <tr><td className="inventory-empty" colSpan={8}>Produk tidak ditemukan.</td></tr>
             )}
           </tbody>
         </table>
