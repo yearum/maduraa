@@ -1,13 +1,14 @@
 @baseUrl = http://localhost:5000/api/v1
-@testEmail = userbaru.testing@gmail.com
-@testPassword = TestPassword123!
+@testName = {{$dotenv MADURAA_TEST_NAME}}
+@testEmail = {{$dotenv MADURAA_TEST_EMAIL}}
+@testPassword = {{$dotenv MADURAA_TEST_PASSWORD}}
 
-### Register a test account (change the email if this account already exists).
+### Register a test account (run only when a new account is needed).
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "name": "Test User",
+  "name": "{{testName}}",
   "email": "{{testEmail}}",
   "password": "{{testPassword}}"
 }
@@ -22,47 +23,32 @@ Content-Type: application/json
   "password": "{{testPassword}}"
 }
 
-### Run login first, then send the protected request.
+### Run login first, then send protected requests.
 @token = {{login.response.body.token}}
 
 GET {{baseUrl}}/auth/me
 Authorization: Bearer {{token}}
 
-### ==========================================
-### TEST ENDPOINT KATEGORI (PRODUCT CATEGORIES)
-### ==========================================
+###
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{token}}
 
-### Get All Categories
+### Categories
 GET {{baseUrl}}/categories
 Authorization: Bearer {{token}}
 
-### Create Category
-POST {{baseUrl}}/categories
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-  "name": "Makanan"
-}
-
-
-### ==========================================
-### TEST ENDPOINT PRODUK (PRODUCTS)
-### ==========================================
-
-### Get All Products
+### Products
 GET {{baseUrl}}/products
 Authorization: Bearer {{token}}
 
-
-### ==========================================
-### TEST ENDPOINT TRANSAKSI & REPORT
-### ==========================================
-
-### Get Transactions
+### Transactions
 GET {{baseUrl}}/transactions
 Authorization: Bearer {{token}}
 
-### Get Dashboard Summary
+### Dashboard summary
 GET {{baseUrl}}/dashboard/summary
+Authorization: Bearer {{token}}
+
+### Sales report
+GET {{baseUrl}}/reports/sales?type=monthly
 Authorization: Bearer {{token}}

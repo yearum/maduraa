@@ -1,5 +1,4 @@
--- Reference schema matching the Supabase tables shown in the project schema.
--- This file describes the expected structure; it does not modify the live project.
+-- Reference schema matching the Supabase tables used by the project.
 -- Review existing columns, constraints, grants, and RLS policies before applying SQL.
 
 CREATE TABLE IF NOT EXISTS profiles (
@@ -9,6 +8,17 @@ CREATE TABLE IF NOT EXISTS profiles (
   email VARCHAR UNIQUE,
   password VARCHAR,
   role VARCHAR DEFAULT 'user'
+);
+
+-- Retained for compatibility with the earlier backend schema.
+CREATE TABLE IF NOT EXISTS users (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password TEXT NOT NULL,
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -30,7 +40,6 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Keep existing databases compatible with controllers that update this column.
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
@@ -57,3 +66,4 @@ CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transaction_items_transaction ON transaction_items(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_transaction_items_product ON transaction_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

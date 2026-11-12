@@ -1,13 +1,13 @@
 import express from 'express';
 import {
-  getProducts,
-  getProductById,
   createProduct,
-  updateProduct,
   deleteProduct,
+  getProductById,
+  getProducts,
+  updateProduct,
 } from '../controllers/productController.js';
 import verifyToken from '../middlewares/verifyToken.js';
-import { validateRequired, validateIdParam } from '../middlewares/validateRequest.js';
+import { validateIdParam, validateRequired } from '../middlewares/validateRequest.js';
 
 const router = express.Router();
 

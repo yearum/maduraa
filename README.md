@@ -6,7 +6,17 @@
 - `server/` — API backend Node.js dan Express.
 - `docs/` — dokumentasi arsitektur, API, dan database.
 
-Konfigurasi npm dan Vite berada di root repository. Jalankan `npm run dev` atau `npm run build` dari root untuk frontend. Jalankan backend dengan `cd server` lalu `npm run dev` (atau `npm start`). Simpan konfigurasi frontend di `.env.local` root dengan acuan `.env.example`; konfigurasi backend berada di `server/.env` dengan acuan `server/.env.example`. Keduanya dibaca melalui modul konfigurasi masing-masing. Jangan masukkan rahasia backend ke konfigurasi frontend.
+Konfigurasi npm dan Vite berada di root repository. Jalankan `npm run dev` atau `npm run build` dari root untuk frontend. Jalankan backend dengan `cd server` lalu `npm run dev` (atau `npm start`). Simpan konfigurasi frontend di `.env.local` root dengan acuan `client/.env.example`; konfigurasi backend berada di `server/.env` dengan acuan `server/.env.example`. Jangan masukkan rahasia backend ke konfigurasi frontend.
+
+## Autentikasi dan Mode Prototype
+
+Pada Fase 1, halaman Login hanya memvalidasi username dan kata sandi yang tidak kosong, lalu menampilkan pemberitahuan bahwa autentikasi akan dihubungkan pada fase integrasi backend. Halaman ini tidak membuat sesi, menyimpan kata sandi, atau mengirim permintaan autentikasi. Rute registrasi tidak tersedia. Halaman dashboard tetap memerlukan sesi yang sah; autentikasi sementara tidak disediakan.
+
+Untuk integrasi Supabase Auth pada fase berikutnya, atur `VITE_AUTH_MODE=supabase`, `VITE_SUPABASE_URL`, dan salah satu public key: `VITE_SUPABASE_PUBLISHABLE_KEY` atau `VITE_SUPABASE_ANON_KEY`. Ambil nilainya hanya dari project Supabase yang memang terhubung dengan Maduraa. Frontend hanya boleh menggunakan publishable/anon key; jangan pernah menggunakan `service_role`.
+
+Supabase data adapter belum dihubungkan karena schema data dan kebijakan RLS aplikasi belum diverifikasi. Adapter data dan interface tetap perlu ditinjau sebelum integrasi schema terverifikasi.
+
+Backend Express masih memiliki endpoint autentikasi JWT dan route API yang memvalidasi token tersebut. Frontend saat ini tidak memanggil endpoint itu; jangan mencampur token backend dengan session Supabase. Jika route API tersebut akan dipakai oleh frontend, verifikasi token Supabase dan pemetaan user perlu ditangani sebagai perubahan backend terpisah sebelum integrasi data.
 
 Dev tim:
 
@@ -165,12 +175,3 @@ Untuk memeriksa apakah Node.js dan npm sudah terinstall:
 ```bash
 node -v
 npm -v
-```
-
-## Konfigurasi Supabase
-
-Salin `.env.example` menjadi `.env.local`, lalu isi `VITE_SUPABASE_URL` dan
-`VITE_SUPABASE_ANON_KEY` dari pengaturan API proyek Supabase. Jangan masukkan
-service role key ke aplikasi frontend. Tabel `transactions` harus memiliki
-kolom `id`, `created_at`, dan `total` seperti pada
-[`docs/database_schema.sql`](./docs/database_schema.sql).

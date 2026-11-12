@@ -86,6 +86,11 @@ Response `200`:
 
 `user` adalah klaim JWT; endpoint ini tidak mengambil ulang profil dari database.
 
+### `GET /auth/profile`
+
+Rute kompatibilitas untuk klien lama. Rute ini memerlukan bearer token yang sama dan
+mengembalikan objek `{ "success": true, "message": "...", "user": { ... } }`.
+
 ## Categories
 
 Semua endpoint kategori memerlukan Bearer token.
