@@ -6,6 +6,7 @@ import {
   EyeOff,
   ArrowRightToLine,
   CircleAlert,
+  CheckCircle,
 } from 'lucide-react'
 import { useAuth } from '../contexts/useAuth'
 import { getAuthErrorMessage, validateEmail } from '../services/authService'
@@ -157,6 +158,18 @@ function LoginPage() {
             <ArrowRightToLine size={17} />
           </button>
         </form>
+
+        {previewEnabled && (
+          <div className="login-preview-actions">
+            <p><Eye size={13} /> DEVELOPMENT PREVIEW · TANPA LOGIN</p>
+            <button type="button" onClick={() => enterPreview('owner')}>
+              Preview sebagai Pemilik
+            </button>
+            <button type="button" onClick={() => enterPreview('cashier')}>
+              Preview sebagai Kasir
+            </button>
+          </div>
+        )}
 
         <aside className="login-help">
           <p>Gunakan email dan kata sandi akun yang telah terdaftar.</p>
