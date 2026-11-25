@@ -1,5 +1,5 @@
 ﻿
-import { useMemo, useState, type SetStateAction } from 'react'
+import { lazy, Suspense, useMemo, useState, type SetStateAction } from 'react'
 import {
   LayoutDashboard,
   ShoppingBasket,
@@ -41,10 +41,6 @@ import {
   saveProducts,
   saveSales,
 } from '../data/localAppData'
-import ProductsPage from './ProductsPage'
-import ReportsPage from './ReportsPage'
-import CategoriesPage from './CategoriesPage'
-import OverviewPage from './OverviewPage'
 import ReceiptDialog from '../components/ReceiptDialog'
 import {
   formatRupiah,
@@ -55,6 +51,12 @@ import {
 } from '../data/products'
 import { initialDemoSales, type SaleTransaction } from '../data/sales'
 import './DashboardPage.css'
+
+const ProductsPage = lazy(() => import('./ProductsPage'))
+const ReportsPage = lazy(() => import('./ReportsPage'))
+const CategoriesPage = lazy(() => import('./CategoriesPage'))
+const OverviewPage = lazy(() => import('./OverviewPage'))
+const pageLoadingFallback = <div role="status" aria-live="polite">Memuat halaman...</div>
 
 type ProfileSettingsProps = {
   profile: StoreProfile
@@ -237,11 +239,13 @@ function DashboardPage({
 }: DashboardPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { mode, signOut, updateProfileName } = useAuth()
+  const { mode, signOut, updateProfileName, user } = useAuth()
   const demo = useDemoStore()
   const demoMode = mode === 'prototype'
   const preview = usePreview()
-  const isCashierPreview = preview.role === 'cashier'
+  const isCashier =
+    preview.role === 'cashier' ||
+    (!preview.role && user?.role === 'cashier')
   const authProfile = useAuthProfile()
   const accountIdentity = demoMode
     ? `prototype:${authProfile?.identity ?? ''}`
@@ -663,11 +667,10 @@ function DashboardPage({
 
   function handleMenu(menu: string) {
     if (
-      isCashierPreview &&
+      isCashier &&
       menu !== 'Dashboard' &&
       menu !== 'Transaksi Kasir'
     ) {
-      setNotice('Menu ini tidak tersedia pada Preview Kasir.')
       return
     }
     setMenuOverride({ pathname: location.pathname, menu })
@@ -797,7 +800,7 @@ function DashboardPage({
           {[
             { label: 'Dashboard', icon: LayoutDashboard },
             { label: 'Transaksi Kasir', icon: ShoppingBasket },
-            ...(!isCashierPreview
+            ...(!isCashier
               ? [
                   { label: 'Produk', icon: Package },
                   { label: 'Kategori', icon: Shapes },
@@ -854,7 +857,7 @@ function DashboardPage({
           <div className="preview-mode-banner" role="status">
             <strong>MODE PREVIEW - DATA SEMENTARA</strong>
             <span>Role: {preview.role === 'owner' ? 'Pemilik' : 'Kasir'}</span>
-          </div>
+        </div>
         )}
 
         {(dataError || (demoMode && demo.error)) && (
@@ -862,12 +865,14 @@ function DashboardPage({
         )}
 
         {activeMenu === 'Dashboard' ? (
-          <OverviewPage
-            products={productList}
-            categories={categories}
-            sales={sales}
-            onNavigate={handleMenu}
-          />
+          <Suspense fallback={pageLoadingFallback}>
+            <OverviewPage
+              products={productList}
+              categories={categories}
+              sales={sales}
+              onNavigate={handleMenu}
+            />
+          </Suspense>
         ) : activeMenu === 'Profil Warung' ? (
           <ProfileSettings
             key={authProfile?.name ?? storeProfile.ownerName}
@@ -880,27 +885,33 @@ function DashboardPage({
             saveError={profileSaveError}
           />
         ) : activeMenu === 'Produk' ? (
-          <ProductsPage
-            key={initialProductFormOpen ? 'product-form' : 'product-list'}
-            products={productList}
-            categories={categories}
-            onProductsChange={updateProducts}
-            onCategoriesChange={updateCategories}
-            initialFormOpen={initialProductFormOpen}
-          />
+          <Suspense fallback={pageLoadingFallback}>
+            <ProductsPage
+              key={initialProductFormOpen ? 'product-form' : 'product-list'}
+              products={productList}
+              categories={categories}
+              onProductsChange={updateProducts}
+              onCategoriesChange={updateCategories}
+              initialFormOpen={initialProductFormOpen}
+            />
+          </Suspense>
         ) : activeMenu === 'Kategori' ? (
-          <CategoriesPage
-            categories={categories}
-            products={productList}
-            sales={sales}
-            inactiveCategories={inactiveCategories}
-            onCategoriesChange={updateCategories}
-            onProductsChange={updateProducts}
-            onToggleCategory={toggleCategoryStatus}
-            onRenameCategory={renameCategoryStatus}
-          />
+          <Suspense fallback={pageLoadingFallback}>
+            <CategoriesPage
+              categories={categories}
+              products={productList}
+              sales={sales}
+              inactiveCategories={inactiveCategories}
+              onCategoriesChange={updateCategories}
+              onProductsChange={updateProducts}
+              onToggleCategory={toggleCategoryStatus}
+              onRenameCategory={renameCategoryStatus}
+            />
+          </Suspense>
         ) : activeMenu === 'Laporan Omzet' ? (
-          <ReportsPage sales={sales} storeProfile={storeProfile} />
+          <Suspense fallback={pageLoadingFallback}>
+            <ReportsPage sales={sales} storeProfile={storeProfile} />
+          </Suspense>
         ) : (
         <div className="cashier-workspace">
           <section className="product-section">
@@ -1144,8 +1155,8 @@ function DashboardPage({
               Data transaksi dan stok diperbarui.
             </p>
           </aside>
-        </div>
-        )}
+          </div>
+          )}
       </section>
     </main>
     {selectedReceipt && (
