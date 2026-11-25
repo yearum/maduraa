@@ -83,7 +83,9 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 
   if (/fetch|network|connection/i.test(message)) {
-    return 'Tidak dapat terhubung ke Supabase. Periksa koneksi internet Anda.'
+  return getAuthMode() === 'backend'
+    ? 'Tidak dapat terhubung ke server backend. Periksa apakah server sedang berjalan.'
+    : 'Tidak dapat terhubung ke Supabase. Periksa koneksi internet Anda.'
   }
 
   if (message.includes('Supabase belum dikonfigurasi')) {

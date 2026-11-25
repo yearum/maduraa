@@ -22,7 +22,26 @@ function ProtectedRoute() {
     return <p role="status">Memeriksa sesi...</p>
   }
 
-  return user ? <Outlet /> : <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
+
+  if (mode === 'prototype' || user.role === 'owner') {
+    return <Outlet />
+  }
+
+  if (user.role === 'cashier') {
+    const cashierPaths = [
+      '/dashboard',
+      '/dashboard/overview',
+      '/overview',
+      '/transactions',
+    ]
+
+    return cashierPaths.includes(location.pathname)
+      ? <Outlet />
+      : <Navigate to="/dashboard" replace />
+  }
+
+  return <p role="alert">Akses akun tidak dikenali.</p>
 }
 
 export default ProtectedRoute

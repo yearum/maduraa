@@ -1,67 +1,63 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Store,
   Eye,
   EyeOff,
   ArrowRightToLine,
   CircleAlert,
-  CheckCircle,
 } from 'lucide-react'
-import { usePreview } from '../contexts/usePreview'
-import type { PreviewRole } from '../contexts/previewTypes'
+import { useAuth } from '../contexts/useAuth'
+import { getAuthErrorMessage, validateEmail } from '../services/authService'
 import './LoginPage.css'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const preview = usePreview()
-  const [username, setUsername] = useState('')
+  const { signIn, user, loading } = useAuth()
+
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [usernameError, setUsernameError] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [submitMessage, setSubmitMessage] = useState('')
-  const previewEnabled = import.meta.env.DEV
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (preview.role && location.pathname === '/login') {
-      navigate(
-        preview.role === 'owner' ? '/dashboard/overview' : '/dashboard',
-        { replace: true },
-      )
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true })
     }
-  }, [location.pathname, navigate, preview.role])
+  }, [loading, navigate, user])
 
-  function enterPreview(role: PreviewRole) {
-    preview.startPreview(role)
-    navigate(role === 'owner' ? '/dashboard/overview' : '/dashboard', {
-      replace: true,
-    })
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setUsernameError('')
+
+    setEmailError('')
     setPasswordError('')
     setSubmitMessage('')
-    let hasValidationError = false
 
-    if (!username.trim()) {
-      setUsernameError('Username wajib diisi.')
-      hasValidationError = true
+    const validationMessage = validateEmail(email)
+
+    if (validationMessage) {
+      setEmailError(validationMessage)
     }
 
     if (!password) {
       setPasswordError('Kata sandi wajib diisi.')
-      hasValidationError = true
     }
 
-    if (hasValidationError) return
+    if (validationMessage || !password) return
 
-    setSubmitMessage(
-      'Username dan kata sandi lolos validasi. Autentikasi akan dihubungkan pada tahap integrasi backend.',
-    )
+    setIsSubmitting(true)
+
+    try {
+      await signIn(email.trim().toLowerCase(), password)
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      setSubmitMessage(getAuthErrorMessage(error))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -73,39 +69,40 @@ function LoginPage() {
         </header>
 
         {submitMessage && (
-          <div className="login-alert login-success" role="status">
-            <CheckCircle size={16} aria-hidden="true" />
+          <div className="login-alert" role="alert">
+            <CircleAlert size={16} aria-hidden="true" />
             <span>{submitMessage}</span>
           </div>
         )}
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="email">Email</label>
 
             <div className="login-input-wrap">
               <input
-                id="username"
-                name="username"
-                type="text"
-                placeholder="Masukkan username"
-                value={username}
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Masukkan email"
+                value={email}
                 onChange={(event) => {
-                  setUsername(event.target.value)
-                  setUsernameError('')
+                  setEmail(event.target.value)
+                  setEmailError('')
                   setSubmitMessage('')
                 }}
                 autoComplete="username"
-                aria-invalid={Boolean(usernameError)}
-                aria-describedby={usernameError ? 'username-error' : undefined}
+                aria-invalid={Boolean(emailError)}
+                aria-describedby={emailError ? 'email-error' : undefined}
                 required
               />
               <Store size={16} aria-hidden="true" />
             </div>
-            {usernameError && (
-              <p className="password-hint" id="username-error">
+
+            {emailError && (
+              <p className="password-hint" id="email-error">
                 <CircleAlert size={12} aria-hidden="true" />
-                {usernameError}
+                {emailError}
               </p>
             )}
           </div>
@@ -145,7 +142,7 @@ function LoginPage() {
 
             {passwordError && (
               <p className="password-hint" id="password-error">
-                <CircleAlert size={12} />
+                <CircleAlert size={12} aria-hidden="true" />
                 {passwordError}
               </p>
             )}
@@ -154,27 +151,16 @@ function LoginPage() {
           <button
             className="login-submit"
             type="submit"
+            disabled={isSubmitting || loading}
           >
-            <span>Masuk ke Warung</span>
+            <span>{isSubmitting ? 'Memproses...' : 'Masuk ke Warung'}</span>
             <ArrowRightToLine size={17} />
           </button>
         </form>
 
-        {previewEnabled && (
-          <div className="login-preview-actions">
-            <p><Eye size={13} /> DEVELOPMENT PREVIEW · TANPA LOGIN</p>
-            <button type="button" onClick={() => enterPreview('owner')}>
-              Preview sebagai Pemilik
-            </button>
-            <button type="button" onClick={() => enterPreview('cashier')}>
-              Preview sebagai Kasir
-            </button>
-          </div>
-        )}
-
         <aside className="login-help">
-          <p>Gunakan username dan kata sandi yang diberikan.</p>
-          <strong>Autentikasi akun akan tersedia setelah integrasi backend.</strong>
+          <p>Gunakan email dan kata sandi akun yang telah terdaftar.</p>
+          <strong>Masuk menggunakan akun yang terdaftar pada sistem.</strong>
         </aside>
       </section>
     </main>
